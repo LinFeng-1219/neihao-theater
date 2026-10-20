@@ -113,6 +113,8 @@ body{
   border-radius:999px;padding:9px 13px}
 .chip .ic{margin-right:5px}
 #homestats{font-size:11px;color:var(--dim);margin-top:18px;letter-spacing:.05em}
+#dailyLine{font-size:11.5px;color:#a08cff;margin-top:10px;letter-spacing:.08em}
+#homeFuture{font-size:11.5px;color:#7fe0a8;margin-top:8px;letter-spacing:.03em}
 .hrow{display:flex;gap:10px;justify-content:center;margin-top:14px}
 .hrow .ghost{padding:9px 18px;font-size:12px}
 .endtitle{font-size:20px;letter-spacing:.15em;text-indent:.15em;margin-bottom:16px}
@@ -191,6 +193,11 @@ body{
 #careBox .carec{font-size:13px;line-height:1.9;color:#ffe9c2}
 #careBox .caref{font-size:11px;color:var(--dim);margin-top:8px}
 #endNext{margin-top:14px;padding:12px 14px;border-left:2px solid rgba(160,140,255,.55);background:rgba(160,140,255,.07);border-radius:0 10px 10px 0;font-size:12.5px;line-height:1.9;color:#cfc6ff;text-align:left}
+#futureRow{display:flex;gap:8px;margin-top:12px}
+#futureRow input{flex:1;min-width:0;font:inherit;font-size:12.5px;color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none}
+#futureRow input:focus{border-color:rgba(160,140,255,.6)}
+#futureRow button{font:inherit;font-size:12.5px;color:#0c2413;background:var(--green);border:none;border-radius:10px;padding:0 16px;cursor:pointer}
+#futureRow.saved{display:none}
 #achline{font-size:12px;color:var(--gold);margin-top:12px}
 .tjgroup.tjach{margin-top:14px}
 .tjchip.ok{color:#ffe9c2;border-color:rgba(255,210,122,.5)}
@@ -292,11 +299,13 @@ button{-webkit-tap-highlight-color:transparent}
     <div class="ov on" id="home">
       <div class="panel">
         <div class="title">念头过境</div>
-        <div class="vol">内耗模拟器 · 手机版 V2.1 · 跟随镜头</div>
+        <div class="vol">内耗模拟器 · 手机版 V2.3 · 六幕</div>
         <p class="desc">每一局，都是一段你经历过的等待。<br>念头如风过境，长成一棵发光的树，<br>而你要练习的，是<b>放下手机</b>。</p>
         <button type="button" class="primary cursor-interaction" id="go">🌙 开始今晚 · 随机剧本</button>
         <div id="chips"></div>
         <div id="homestats"></div>
+        <div id="dailyLine"></div>
+        <div id="homeFuture" hidden></div>
         <div class="hrow">
           <button type="button" class="ghost cursor-interaction" id="btnTj">念头图鉴</button>
           <button type="button" class="ghost cursor-interaction" id="btnIntro">玩法</button>
@@ -379,6 +388,10 @@ button{-webkit-tap-highlight-color:transparent}
         <div id="achline" hidden></div>
         <div class="truth" id="endTruth"></div>
         <div id="endNext" hidden></div>
+        <div id="futureRow">
+          <input id="futureInput" type="text" maxlength="40" placeholder="留一句话给明天的自己……" aria-label="留给明天的话">
+          <button type="button" class="cursor-interaction" id="futureBtn">留下</button>
+        </div>
         <img id="shareImg" alt="本局思维树海报" hidden>
         <div id="shareHint" hidden></div>
         <div class="btnrow">
@@ -438,6 +451,7 @@ var SCENES=[
       dotOk:"只是移动的流量提醒……",moment:"共同好友赞了你的朋友圈"},
   replies:["刚到家洗完澡～咋了？", "啊…我九点半就睡着了，刚醒，咋啦", "到啦到啦！今天累死了，明天跟你说"],
   truth:"本局真相：他三个小时前就到家了，倒头就睡。",
+  mw:{m60:"与此同时，他那边：热水器响了一声。",m125:"与此同时，他那边：房间很安静。"},
   plot:{start:{at:40,title:"朋友圈提示",body:"他刚刚发了一条朋友圈——一张和朋友的合照，笑得很开心。",opts:[{t:"点开细看",fx:0.12,thought:"合照里没有我",d:1,next:"ma"},{t:"退出去，不看",fx:-0.03,next:"mb"}]},ma:{at:75,title:"关注列表",body:"你顺手点进了他的关注列表。第 37 个关注，是个你没见过的头像。",opts:[{t:"放大那个头像看",fx:0.12,thought:"她是谁",d:1,next:"p1"},{t:"关掉列表",fx:-0.04,end:"e2"}]},mb:{at:75,title:"一杯水的时间",body:"你起身倒了杯水。回来时屏幕亮了一下——不是他，是运营商的流量提醒。",opts:[{t:"再等十分钟就睡",fx:0.06,thought:"万一他回呢",d:1,next:"p2"},{t:"直接关灯睡觉",fx:-0.05,end:"e4"}]},p1:{at:105,title:"群聊消息",body:"共同好友在群里@他：「明天继续？」他隔了几秒，回了一个「好」。",opts:[{t:"盯着那个「好」字看",fx:0.1,thought:"他对别人秒回",d:1,end:"e1"},{t:"退出聊天界面",fx:-0.04,end:"e2"}]},p2:{at:105,title:"别人的热闹",body:"群里突然热闹起来——可话题从头到尾，没有一句和你有关。",opts:[{t:"继续围观到凌晨",fx:0.1,thought:"我像不存在一样",d:1,end:"e3"},{t:"放下手机",fx:-0.04,end:"e4"}]},e1:{truth:"本局真相：合照是部门团建，「好」回的是同事约球。",reply:"「刚看到消息，咋了？」——他完全不知道这三个小时你经历了什么。",care:"你把两个无关的细节，串成了一部失恋大片。编剧功力惊人，但今晚，杀青吧。",careV:"你把大片拍完了，可你中途也划掉过念头、按住过呼吸——今晚你陷得深，也爬得动。编剧功力留着写喜剧吧，明天开始。",nx:"第二天他带了两杯奶茶，一杯放在你桌上：「昨天部门团建，累了吧。」你看着奶茶，没提昨晚。"},e2:{truth:"本局真相：合照里真没什么，你放大的那块阴影是他外套的褶皱。",reply:"「宝？我到家就睡啦，咋了？」",care:"你看了，但在关键处停住了手。把好奇心按在原地很难，你做到了。",nx:"第二天你睡得不错。他中午发来一句「昨晚睡得早」，你回了个「嗯」，心里很平。"},e3:{truth:"本局真相：热闹是他们的，也是寻常的——没有一句和你有关，也没有一句针对你。",reply:"「？」——他完全不知道发生了什么。",care:"我们总以为被排除在外，其实只是没被卷进去。没被卷进去，是福气。",careV:"热闹与你无关的戏你看了一整场，但你最后放下了手机。陷进去是本能，走出来是本事——今晚两样你都有。",nx:"第二天群里照常斗图，没人在意你昨晚看群看到几点。热闹还在，你也在。"},e4:{truth:"本局真相：他到家、洗澡、睡觉，一气呵成。",reply:"「早☀ 刚看到」——这是第二天早上七点。",care:"整晚你几乎没有喂那只脑内怪兽。它饿了一点，你就轻了一点。",nx:"第二天早上他发来「早☀」，你才想起自己昨晚睡得像个正常人。"}}
 },
 { id:"boss",ic:"💼",name:"请假这件事",tag:"职场",
@@ -450,6 +464,7 @@ var SCENES=[
       dotOk:"是考勤 App 的推送……",moment:"工作群里突然有人@所有人"},
   replies:["可以，走流程吧。", "行，把工作交接一下。", "嗯，早点回来。"],
   truth:"本局真相：他在陪孩子写作业，看到消息顺手就批了。",
+  mw:{m60:"与此同时，老板那边：传来小孩背课文的声音。",m125:"与此同时，老板那边：台灯还亮着。"},
   plot:{start:{at:40,title:"工作群",body:"老板在群里发了一句「明天都早点到」，几秒后又撤回了。",opts:[{t:"反复回想那句话",fx:0.1,thought:"他到底想说什么",d:1,next:"ma"},{t:"假装没看见",fx:-0.03,next:"mb"}]},ma:{at:75,title:"删了又打",body:"你把「明天想请个假」删了又打，打了又删。光标在输入框里，闪了十一分钟。",opts:[{t:"换个委婉的说法",fx:0.08,thought:"他会怎么读这句话",d:1,next:"p1"},{t:"原句直接发",fx:-0.02,end:"e2"}]},mb:{at:75,title:"接龙",body:"同事在群里接了个龙——「收到」接到了第 14 个。你的那条，还空着。",opts:[{t:"补一个「收到」",fx:0.06,thought:"有人发现我晚了吗",d:1,next:"p2"},{t:"不补，明天当面说",fx:-0.03,end:"e4"}]},p1:{at:105,title:"新邮件",body:"一封新邮件滑进来，标题是——《关于组织架构调整的通知》。",opts:[{t:"点开看名单",fx:0.12,thought:"名单里有我吗",d:1,end:"e1"},{t:"不看了，反正也睡不着",fx:-0.03,end:"e2"}]},p2:{at:105,title:"撤回之后",body:"那封《组织架构调整》的邮件，也被撤回了。",opts:[{t:"追问道「什么调整？」",fx:0.1,thought:"装平静的人最慌",d:1,end:"e3"},{t:"就当没发生过",fx:-0.03,end:"e4"}]},e1:{truth:"本局真相：撤回的是「明天我带奶茶」——发错群了；名单是别的部门裁员。",reply:"「假条批了，好好休息。」",care:"最坏的画面全是脑补的。真实世界今天甚至没空搭理你。",careV:"名单你看了，心也慌了，但你没有继续往下翻。深陷和自救发生在同一晚——后者赢了。",nx:"第二天你准点下班，假也批了。老板在电梯里问你「昨天群里那条看到吧」，你说看到了——原来谁都没在意。"},e2:{truth:"本局真相：那封邮件和你毫无关系，附件是别的部门的团建照片。",reply:"「批了。周五交个周报就行。」",care:"你扛住了没有点开的诱惑。不知道结果，有时候比坏结果好受——你已经在练这个了。",nx:"第二天你照常上班，那封「组织架构调整」安安静静躺在邮件栏里，没人提起。"},e3:{truth:"本局真相：邮件抄送错了，全公司都收到了，不止你一个。",reply:"「？你也收到那封邮件了吧哈哈」",care:"原来大家都在同一艘船上慌张。你不是被针对的主角，只是个普通收件人。",careV:"你追了那句话，也慌了一阵，但你最后把它放下了。今晚你最了不起的，不是没慌，是慌完收手。",nx:"第二天同事私下问你「昨晚公告吓到你没」——原来大家都心里一紧。不止你一个。"},e4:{truth:"本局真相：第二天你到公司，什么都没发生，谁也没提昨天。",reply:"「早。假条记得补流程哈。」",care:"两封邮件你都放下了。天没有塌，反而亮了。这份钝感力，值钱。",nx:"第二天你到工位，一切如常。周报照交，奶茶照喝。天真的没有塌。"}}
 },
 { id:"moments",ic:"🌤",name:"第九个赞",tag:"朋友圈",
@@ -462,6 +477,7 @@ var SCENES=[
       dotOk:"是抖音的周报推送……",moment:"刷到别人发的九宫格聚餐"},
   replies:["「拍得不错。」——三年没联系的高中同学", "第 9 个赞，来自妈妈。", "有人评论：「哪拍的？」"],
   truth:"本局真相：那张天空，你自己拍完也觉得一般，但你还是想给它找一个观众。",
+  mw:{m60:"与此同时，他那边：客厅的电视换了个台。",m125:"与此同时，他那边：好像也还没睡。"},
   plot:{start:{at:40,title:"主页访客",body:"有个头像在你的主页停了很久。是你最在意的那一个。",opts:[{t:"去看看他的主页",fx:0.12,thought:"他在看谁的动态",d:1,next:"ma"},{t:"锁屏，不看了",fx:-0.03,next:"mb"}]},ma:{at:75,title:"三条动态之外",body:"他的主页你翻了三页。最新一条停在一周前，配文只有一个字：「忙」。",opts:[{t:"点开那条「忙」",fx:0.1,thought:"他在忙什么",d:1,next:"p1"},{t:"退出主页",fx:-0.03,end:"e2"}]},mb:{at:75,title:"天花板的裂纹",body:"你盯着天花板。手机又亮了一次，光打在天花板上，像一道很浅的裂纹。",opts:[{t:"再看一眼是谁",fx:0.08,thought:"万一这次是他",d:1,next:"p2"},{t:"把手机扣过去",fx:-0.04,end:"e4"}]},p1:{at:105,title:"失联来信",body:"三年没联系的高中同学突然发来私信：「在吗？」",opts:[{t:"回一个「在」",fx:0.08,thought:"原来只有失联的人会找我",d:1,end:"e1"},{t:"不回",fx:-0.02,end:"e2"}]},p2:{at:105,title:"深夜的赞",body:"深夜，那个你在意的头像，给你的天空点了个赞。",opts:[{t:"盯着那个赞看",fx:0.1,thought:"一个赞能说明什么",d:1,end:"e3"},{t:"睡吧",fx:-0.02,end:"e4"}]},e1:{truth:"本局真相：他在你主页停留，只是想找三年前你帮他拍的那张合照。",reply:"「拍得不错」下面，他又补了一句：「还是你拍得好」。",care:"别人的目光没有那么多剧情。有时候，停留就只是停留。",careV:"你翻了三页主页，编剧功力惊人。但你收住了——深陷过的人，才更知道出口在哪。",nx:"第二天他把三年前那张合照设成了朋友圈封面。原来他一直记着。"},e2:{truth:"本局真相：那个头像停留了两秒——点错了，又划走了。",reply:"第 10 个赞，来自你的妈妈。",care:"世界对你没有恶意，它只是随手路过了你。真正的温柔，是妈妈第 10 个赞。",nx:"第二天你翻相册，翻到妈妈偷偷拍的你的睡颜。有些关注，从来不出声。"},e3:{truth:"本局真相：那个赞是手滑。他三分钟后取消了。",reply:"（通知变成了：「对方取消了赞」。）",care:"你看，连一个赞都承载不了那么多意义。别替别人的手指写小说。",careV:"一个赞被你看出了一部剧。但剧终是你自己按的。这个能力，比「不在意」更珍贵。",nx:"第二天你早忘了那个赞。有些东西取消了，就在你的世界里彻底不存在了。"},e4:{truth:"本局真相：第二天中午，那条天空下已经有 9 个赞了。",reply:"「拍得不错。」——三年没联系的高中同学。",care:"你睡了，赞自己来了。你等的东西，常常在你放下之后抵达。",nx:"第二天那条天空照片下有 11 个赞。你数都没数。"}}
 },
 { id:"group",ic:"💬",name:"冷场的梗",tag:"群聊",
@@ -474,6 +490,7 @@ var SCENES=[
       dotOk:"是群公告的更新提醒……",moment:"隔壁群突然斗起图来"},
   replies:["哈哈哈（23:41，仅此一条）", "@你 这段子我昨天看过", "有人默默发了个红包，话题被带走了"],
   truth:"本局真相：那晚 132 人都看到了，只是大家都在加班。",
+  mw:{m60:"与此同时，群里：有人退了又进来。",m125:"与此同时，②群：还在发段子。"},
   plot:{start:{at:40,title:"②群暴击",body:"隔壁「摸鱼俱乐部②群」有人发了个一模一样的段子，收获了 23 个「哈哈哈」。",opts:[{t:"截图发到大群对质",fx:0.1,thought:"凭什么",d:1,next:"ma"},{t:"算了，没意思",fx:-0.02,next:"mb"}]},ma:{at:75,title:"沉默的两分钟",body:"截图发出去了。大群安静了两分钟——这两分钟，比两小时还长。",opts:[{t:"盯着群聊等回复",fx:0.1,thought:"他们是不是在笑我",d:1,next:"p1"},{t:"退出群聊界面",fx:-0.03,end:"e2"}]},mb:{at:75,title:"段子重播",body:"你把那个段子又看了一遍。好像，确实没那么好笑。你笑了一下，又停住了。",opts:[{t:"发到别的群试试",fx:0.08,thought:"哪个群会懂我",d:1,next:"p2"},{t:"收起手机",fx:-0.04,end:"e4"}]},p1:{at:105,title:"群公告",body:"群主发了一条公告：「长期潜水的同学，可以考虑退群了。」",opts:[{t:"看看@的是谁",fx:0.12,thought:"是在说我吗",d:1,end:"e1"},{t:"当作没看见",fx:-0.03,end:"e2"}]},p2:{at:105,title:"夜里的招呼",body:"深夜，群里有人@你：「睡了没？就问你一句。」",opts:[{t:"盯着这句话猜是谁",fx:0.1,thought:"找我什么事",d:1,end:"e3"},{t:"不回，装睡",fx:-0.02,end:"e4"}]},e1:{truth:"本局真相：你把截图发过去，对面回了句「哦，那没事了」。风波比你想的小得多。",reply:"群里有人发了新表情包，你的截图慢慢沉了下去。",care:"你为自己说了话。不管结果如何，「说出来」本身就是胜利。",careV:"你为那两分钟的沉默导演了一整部腹谤剧。可你也划掉过念头、放平过呼吸——深过，也浮上来了。",nx:"第二天那个「哈哈哈」最多的群友私聊你：「你昨天那个段子挺好笑的。」"},e2:{truth:"本局真相：你算了。第二天发现，②群那人也自己删了那条段子。",reply:"「早啊」——有人在群里跟你打了个招呼。",care:"有些委屈放一放，自己就化了。你的「算了」不是怂，是筛选：筛选值得消耗的人和事。",nx:"第二天②群的那个人自己退群了。大群安安静静，什么都没发生。"},e3:{truth:"本局真相：公告@的是三个月没发言的另一个人，不是你。",reply:"「@你 别多想，例行公告」（群主私聊你）",care:"你看了，也慌了，然后发现矛头根本不在你这儿。焦虑最爱冒领罪名，下次让它先出示证据。",careV:"一句话被你读到凌晨。但你最终没有回、没有猜到底。今晚你是从深水里自己浮上来的。",nx:"第二天群里恢复日常斗图。公告像没存在过。你慌过，但过去了。"},e4:{truth:"本局真相：你当作没看见。第二天群里照常冷场，谁也没退群。",reply:"（群里安安静静，一切照旧。）",care:"潜水不丢人。有些群存在的意义，就是让你知道：热闹不需要你参与，你依然安全。",nx:"第二天中午，群里有人@所有人发周报模板。潜水的人，安全着陆。"}}
 },
 { id:"crush",ic:"💫",name:"在吗",tag:"暧昧",
@@ -486,7 +503,21 @@ var SCENES=[
       dotOk:"是购物 App 的降价提醒……",moment:"她给别人点了个赞"},
   replies:["在的，咋啦？", "刚洗漱完！怎么啦", "？"],
   truth:"本局真相：她在追一部剧，刚看到消息，正处大结局。",
+  mw:{m60:"与此同时，她那边：音乐停了。",m125:"与此同时，她那边：房间的灯也灭了。"},
   plot:{start:{at:40,title:"合照",body:"共同好友发了张合照：她和某个男生并肩站着，笑得很近。",opts:[{t:"放大了看",fx:0.12,thought:"那个人是谁",d:1,next:"ma"},{t:"划走，不看了",fx:-0.02,next:"mb"}]},ma:{at:75,title:"一拳的距离",body:"你把照片放大到最长——两个人的肩膀之间，隔着一拳的距离。你量了三遍。",opts:[{t:"去问她本人",fx:0.1,thought:"我问了就输了",d:1,next:"p1"},{t:"把照片缩小",fx:-0.03,end:"e2"}]},mb:{at:75,title:"两个字的子弹",body:"你点开和她的聊天框，打了「在吗」两个字。它们躺在输入框里，像两颗没敢发射的子弹。",opts:[{t:"按下发送",fx:0.08,thought:"她会怎么回",d:1,next:"p2"},{t:"长按，全删了",fx:-0.04,end:"e4"}]},p1:{at:105,title:"她分享的歌",body:"她分享了一首歌——正好是那首你们都听过的《体面》。",opts:[{t:"单曲循环听一遍",fx:0.1,thought:"这歌是唱给谁的",d:1,end:"e1"},{t:"不听",fx:-0.02,end:"e2"}]},p2:{at:105,title:"头像暗了",body:"23:50，她的头像暗了——下线了，没有回你的「在吗」。",opts:[{t:"盯着灰掉的头像",fx:0.1,thought:"她宁可下线也不回我",d:1,end:"e3"},{t:"把手机扣在桌上",fx:-0.02,end:"e4"}]},e1:{truth:"本局真相：那个男生是她表哥，合照是家庭聚餐。",reply:"「在的！刚才和大姨一家吃饭呢，我表哥非要发合照」",care:"你看，放大的细节差点杀死一段关系。下次手痒的时候，先问问当事人。",careV:"一首歌被你听出了刀。可你中途也停过手、松过劲。陷得深不丢人，能出来才是真功夫。",nx:"第二天她主动发来消息：「昨天我表哥还说你拍照好看。」你看，问了就是答案。"},e2:{truth:"本局真相：合照是团建，男生是同事，站位是随机的。",reply:"「在呀～刚忙完」",care:"你划走了那张照片。有些猜疑在按下不看的瞬间就输了——赢的是你。",nx:"第二天她照常给你分享了个搞笑视频。你们的关系，没有因为一张照片变形。"},e3:{truth:"本局真相：那首歌是系统随机推荐，她的分享列表里有二十首歌。",reply:"「这歌？系统推的，咋了？」",care:"她不知道那首歌对你们的意义。有些信号只存在于你的电台里，别替别人的歌填词。",careV:"灰掉的头像让你写了一晚的独白剧。但你把手机扣下了。从深水里上岸的人，今晚你算一个。",nx:"第二天她回你消息很快。那首歌，她压根不记得分享过。"},e4:{truth:"本局真相：她根本没在追什么剧，那条分享是转发抽奖。",reply:"「咋啦？看到你消息啦」",care:"你没听那首歌，也就没掉进那三分钟的心如刀绞。有时候「不听」就是最好的止损。",nx:"第二天她回「在呀」。原来「在吗」发出来，天不会塌。"}}
+},
+{ id:"family",ic:"🏠",name:"家庭群",tag:"亲情",
+  contact:"妈",status:"在线",typingName:"妈妈正在输入…",doneStatus:"已回复",
+  msg:"知道了知道了",sentTime:"21:30",endTime:"23:58",totalMin:148,
+  sub:"已发送 21:30 · 妈妈没再说话",doneTitle:"23:58 · 妈妈回了",
+  tree:[{t:"她生气了？",k:[{t:"我刚才太敷衍了",k:[{t:"「知道了知道了」是六个字打发她",k:[{t:"换成是我，我会难过吧",k:[{t:"她把我养这么大，我就回六个字",k:[{t:"难怪她不想理我",k:[]}]}]}]},{t:"上次也是这么敷衍的",k:[{t:"敷衍是会攒的",k:[{t:"攒够了，她就不再问了吗",k:[]}]}]}]},{t:"她在等我先开口",k:[{t:"她从来不先服软",k:[{t:"我也是",k:[{t:"两个人都在等，就都等不到",k:[]}]}]},{t:"她可能是不知道说什么了",k:[{t:"什么时候开始，我们没话说了",k:[]}]}]}]},{t:"在忙着转发？",k:[{t:"又在家族群看养生文",k:[{t:"上一条还是「不转不是中国人」",k:[{t:"我连她的链接都没点开过",k:[{t:"她发的每一篇，我都没看",k:[]}]}]}]},{t:"在跟小姨视频",k:[{t:"说的可能是我",k:[{t:"比工作，比对象",k:[{t:"我是她们的话题，不是她们惦记的人",k:[]}]}]}]}]},{t:"打字不方便？",k:[{t:"六十秒语音，她打字慢",k:[{t:"她打字还要手写",k:[{t:"那个输入法还是我教她装的",k:[{t:"教完之后，我再没打过电话",k:[]}]}]}]},{t:"手机快没电了",k:[{t:"她总是忘了充电",k:[{t:"就像她总忘了自己",k:[]}]}]}]},{t:"对我失望了？",k:[{t:"问工作，我说「就那样」",k:[{t:"她想听的不是这个",k:[{t:"她想听的到底是什么",k:[{t:"我好像从来没答对过",k:[]}]}]}]},{t:"问对象，我说「别催了」",k:[{t:"那是她跟阿姨们唯一的谈资",k:[{t:"我把她的谈资也没收了",k:[]}]}]},{t:"上次通话只讲了三分钟",k:[{t:"她大概也觉得无话可说了",k:[{t:"无话可说，也是一种说话",k:[]}]}]}]}],
+  clear:["她只是在做饭", "没消息就是好消息", "明天打个视频就好", "沉默不等于生气", "她也在学着跟我相处"],
+  ev:{typing:"妈妈打了字，又删了",online:"妈妈的头像亮了",dot:"1 条新通知",
+      dotOk:"是快递柜的取件提醒……",moment:"家族群里小姨发了孙子的照片"},
+  replies:["妈我睡着了，明天说", "妈，周末我回家吃饭", "妈，其实我最近……"],
+  truth:"本局真相：她做好了你的酱菜想拍照发给你看，拍了三张都没对上焦。",
+  mw:{m60:"与此同时，她那边：厨房的抽油烟机响了。",m125:"与此同时，她那边：电视在放天气预报。"},
+  plot:{start:{at:40,title:"亲戚的照片",body:"家庭群里，小姨发了一张照片：表弟的新车，红绸子还挂着。妈妈没说话，你也没说话。",opts:[{t:"盯着那辆车看",fx:0.12,thought:"我什么时候能买得起",d:1,next:"ma"},{t:"退出家庭群界面",fx:-0.03,next:"mb"}]},ma:{at:75,title:"输入中",body:"「妈妈正在输入……」跳了出来，又消失。反反复复，三次。",opts:[{t:"等她把话说完",fx:0.1,thought:"她是不是有事要我办",d:1,next:"p1"},{t:"直接打电话过去",fx:-0.02,end:"e2"}]},mb:{at:75,title:"楼下的路灯",body:"你走到阳台透气。路灯把影子拉得很长，像小时候她牵你走过的那条路。",opts:[{t:"回房间继续等",fx:0.08,thought:"她到底想说什么",d:1,next:"p2"},{t:"给她发个表情包",fx:-0.04,end:"e4"}]},p1:{at:105,title:"五十九秒",body:"一条 59 秒的语音进来了。你没点开——你怕听到那句「你表弟都买房了」。",opts:[{t:"硬着头皮听完",fx:0.12,thought:"果然是在说别人家孩子",d:1,end:"e1"},{t:"长按转成文字",fx:-0.03,end:"e2"}]},p2:{at:105,title:"深夜的朋友圈",body:"妈妈发了今晚第一条朋友圈：一张你小学的奖状照片。配文：「我家孩子得的第一个奖。」",opts:[{t:"盯着奖状看",fx:0.1,thought:"她原来一直记得",d:1,end:"e3"},{t:"默默点了个赞",fx:-0.02,end:"e4"}]},e1:{truth:"本局真相：59 秒语音里她只说了一件事——「天冷了，记得穿秋裤」。表弟的车，是她转发的别人的。",reply:"「妈不是催你，妈就是想你了。」",care:"你以为的敲打，其实只是想念。她提别人家孩子，就像你小时候讨厌「别人家孩子」——都只是想靠近一点。",careV:"59 秒你听完了，也把那句「果然」咽了回去。你深陷过，但你在练——下次先听完再下结论，或者，先给她打个电话。",nx:"第二天你主动打了电话。她第一句是：「酱菜给你寄了，注意查收。」"},e2:{truth:"本局真相：你打过去时她正在厨房，电话里全是炒菜声：「咋啦？我正给你腌酱菜呢。」",reply:"「没事吧？」「没事就好，早点睡。」",care:"你的一个电话，胜过一晚上的猜测。下次沉默的时候，先伸出手——那边也在等。",nx:"第二天家庭群里，妈妈转发了那辆车：「好看是好看，还是我孩子踏实。」"},e3:{truth:"本局真相：那张奖状她留了二十年，搬三次家都没丢。",reply:"「那是我最骄傲的事。」——妈妈回复了这条朋友圈。",care:"她的世界里最亮的东西，是你以为她早就忘了的那件。别急着替她失望。",careV:"你在奖状前站了很久。深挖挖出了暖的东西，这一夜不算白熬——但你值得不用熬就知道答案。",nx:"第二天你翻出压箱底的奖状拍了张照。有些骄傲，值得被重新看见。"},e4:{truth:"本局真相：她收到表情包笑了很久，截图发给小姨：「看我孩子发的」。",reply:"「哈哈这个表情好玩」——妈妈学着你的样子回了一个。",care:"亲情有时候只差一个表情包的距离。今晚你伸手了，桥就通了。",nx:"第二天早上她发来：「周末回来吗？给你留了酱菜。」你回：「回。」"}}
 }
 ];
 
@@ -561,6 +592,7 @@ var branches,used,branchCount,clearCount,peak,anxiety,waitMin,holding,holdT,
 var notifSeen=0,notifTapped=0,tapThink=0,struck=0,emptyTaps=0,bubbleTaps=0,
     breathT=0,breathNext=4,lastPhase=-1,myReplyText=null,holdTotal=0,resistStreak=0;
 var notifData=null,notifTimer=0;
+var mw1Done=false,mw2Done=false;
 var fakeType=null,fakeStep=0,pendingPenalty=0;
 var pDown=null,pTimer=0,endRateObj=null;
 var cam={x:0,y:0,s:1},camT={x:0,y:0,s:1},camMode='follow';/* follow|full|manual */
@@ -628,7 +660,7 @@ function resetState(){
   holding=false;holdT=0;spawnClock=2.2;clearClock=5;eventClock=6;firstEvent=true;
   pending=null;buzzWin=0;capWarned=false;ended=false;running=false;fast=fast||false;
   notifSeen=0;notifTapped=0;tapThink=0;struck=0;emptyTaps=0;bubbleTaps=0;
-  breathT=0;breathNext=4;lastPhase=-1;myReplyText=null;endRateObj=null;holdTotal=0;resistStreak=0;
+  breathT=0;breathNext=4;lastPhase=-1;myReplyText=null;endRateObj=null;holdTotal=0;resistStreak=0;mw1Done=false;mw2Done=false;
   clearTimeout(notifTimer);notif.classList.remove('show');notifData=null;
   fakeov.classList.remove('on');replybar.classList.remove('on');
   myreply.hidden=true;withdrawBtn.hidden=true;
@@ -1129,6 +1161,10 @@ function tick(ts){
   }
   eventClock-=dt;
   if(eventClock<=0&&waitMin<TOTAL-3)fireEvent();
+  if(SC.mw){
+    if(!mw1Done&&waitMin>=60){mw1Done=true;toast(SC.mw.m60,'good',4600);}
+    if(!mw2Done&&waitMin>=125){mw2Done=true;toast(SC.mw.m125,'good',4600);}
+  }
   heartbeat();
   updateHUD();
   updateCamera(dt);
@@ -1250,7 +1286,10 @@ function checkAch(){
     ['deep','越陷越深','顺着念头想了 5 次',tapThink>=5],
     ['cut','断念师','划掉了 3 个念头',struck>=3],
     ['monk','定力王','连续忍住 3 条通知',resistStreak>=3],
-    ['owl','夜猫子','在凌晨 0 至 5 点游玩',h>=0&&h<5]
+    ['owl','夜猫子','在凌晨 0 至 5 点游玩',h>=0&&h<5],
+    ['picker','拾念人','收集满 100 个念头',(SAVE.stats.thoughts||0)>=100],
+    ['still','静观者','一局看树长成却没碰任何念头',branchCount>=15&&tapThink===0&&struck===0&&bubbleTaps===0],
+    ['omni','全知视角','看过同一剧本的全部 4 种结局',(function(){try{var s=SAVE.seen&&SAVE.seen[SC.id];return s&&s.e1&&s.e2&&s.e3&&s.e4;}catch(e){return false;}})()]
   ];
   A.forEach(function(a){
     if(a[3]&&!SAVE.stats.ach[a[0]]){SAVE.stats.ach[a[0]]=1;out.push('「'+a[1]+'」');}
@@ -1320,6 +1359,13 @@ function showEnd(r){
   var unlocks=checkAch();
   if(unlocks.length){achline.hidden=false;achline.textContent='🏆 本局解锁：'+unlocks.join(' ');}
   else achline.hidden=true;
+  try{
+    if(endKey&&SC.id){
+      SAVE.seen=SAVE.seen||{};
+      SAVE.seen[SC.id]=SAVE.seen[SC.id]||{};
+      SAVE.seen[SC.id][endKey]=1;
+    }
+  }catch(e){}
   endOv.classList.add('on');
   reopenBtn.hidden=true;
 }
@@ -1395,9 +1441,24 @@ function buildCard(r){
 }
 
 /* ================= 图鉴 / 主页 ================= */
+var DAILY=['念头如风，过境不留。','今晚也试着，让树只长不缠。','内耗是太在乎的证明，放下是更深的在乎。','你没义务接住每一个念头。','深呼吸是树根，情绪是叶子。','今晚的剧本，由你决定在哪里收笔。','划掉一个念头，就是给自己松一次绑。','天亮之前，先把自己哄睡。'];
+function dailySign(){
+  var day=Math.floor(Date.now()/86400000);
+  return DAILY[day%DAILY.length];
+}
 function renderHome(){
   var st=SAVE.stats;
   $('homestats').textContent='已内耗 '+st.games+' 局 · 冒出 '+st.thoughts+' 个念头 · 放过自己 '+st.clears+' 次'+(st.oscars>0?' · 拿过 '+st.oscars+' 次脑内奥斯卡':'');
+  var dl=$('dailyLine');
+  if(dl)dl.textContent='☾ 今日一签 · '+dailySign();
+  var fu=$('homeFuture');
+  if(fu){
+    try{
+      var f=SAVE.future||[],today=new Date().toDateString(),line='';
+      for(var i=f.length-1;i>=0;i--){if(f[i].d!==today){line='你留给今天的话：「'+f[i].t+'」';break;}}
+      fu.textContent=line;fu.hidden=!line;
+    }catch(e){}
+  }
   var html='';
   SCENES.forEach(function(s,i){
     var done=false;
@@ -1414,7 +1475,7 @@ function renderHome(){
 }
 function renderTj(){
   var total=0,got=0,html='';
-  var achNames=[['ninja','忍者'],['hand','手贱大师'],['deep','越陷越深'],['cut','断念师'],['monk','定力王'],['owl','夜猫子']];
+  var achNames=[['ninja','忍者'],['hand','手贱大师'],['deep','越陷越深'],['cut','断念师'],['monk','定力王'],['owl','夜猫子'],['picker','拾念人'],['still','静观者'],['omni','全知视角']];
   var aGot=0;
   html+='<div class="tjgroup tjach"><div class="tjglabel">成就<span class="cnt"></span></div><div class="tjchips">';
   achNames.forEach(function(a){
@@ -1452,6 +1513,11 @@ function renderTj(){
   if(SAVE.custom&&SAVE.custom.length){
     html+='<div class="tjgroup gD"><div class="tjglabel">你删掉的话<span class="cnt">'+SAVE.custom.length+'</span></div><div class="tjchips">';
     SAVE.custom.forEach(function(t){html+='<span class="tjchip">'+t+'</span>';});
+    html+='</div></div>';
+  }
+  if(SAVE.future&&SAVE.future.length){
+    html+='<div class="tjgroup gD"><div class="tjglabel">你留给明天的话<span class="cnt">'+SAVE.future.length+'</span></div><div class="tjchips">';
+    SAVE.future.forEach(function(o){html+='<span class="tjchip">'+o.t+'</span>';});
     html+='</div></div>';
   }
   $('tjCount').textContent='收集进度 '+got+' / '+total+' · 成就 '+aGot+' / '+achNames.length+' —— 每个念头，都是你亲口说过的内心 OS';
@@ -1541,6 +1607,18 @@ $('btnSwitch').addEventListener('click',goHome);
 $('btnAgain').addEventListener('click',function(){startGame(SC);});
 $('btnTree').addEventListener('click',function(){endOv.classList.remove('on');reopenBtn.hidden=false;});
 reopenBtn.addEventListener('click',function(){endOv.classList.add('on');reopenBtn.hidden=true;});
+$('futureBtn').addEventListener('click',function(){
+  var t=$('futureInput').value.trim();
+  if(!t){toast('写一句也好，留给明天。','warn');return;}
+  try{
+    SAVE.future=SAVE.future||[];
+    SAVE.future.push({t:t.slice(0,40),d:new Date().toDateString()});
+    if(SAVE.future.length>30)SAVE.future=SAVE.future.slice(-30);
+    persist();
+    $('futureRow').classList.add('saved');
+    toast('留好了。明天首页见。','good');
+  }catch(e){}
+});
 $('btnSave').addEventListener('click',function(){
   try{
     var url=buildCard(rateOf(branchCount)).toDataURL('image/png');
