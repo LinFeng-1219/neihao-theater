@@ -60,7 +60,8 @@ body{
 #tbig{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;font-size:34px;font-weight:500;
   letter-spacing:2px;text-shadow:0 0 18px rgba(255,255,255,.25);font-variant-numeric:tabular-nums}
 #tsub{font-size:11px;color:var(--dim);margin-top:4px}
-#msgrow{position:absolute;left:7%;top:44%;max-width:270px}
+#msgrow{position:absolute;left:7%;top:44%;max-width:270px;transition:opacity 1.2s,transform 1.2s}
+#msgrow.faded{opacity:.14;transform:scale(.94);pointer-events:none}
 #bubble{position:relative;background:var(--green);color:#0c2413;font-size:16px;padding:11px 18px;
   border-radius:4px 14px 14px 14px;box-shadow:0 0 26px rgba(149,236,105,.35),0 4px 14px rgba(0,0,0,.5);word-break:break-all}
 #msgtime{font-size:11px;color:var(--dim);margin-top:6px;letter-spacing:.05em}
@@ -900,18 +901,19 @@ function drawLabel(b,tp,placed,pulse){
   if(b.strike)a*=0.4;
   if(b.tier===4&&!b.strike)a*=0.82+0.18*(pulse||0);
   var col=colorOf(b);
-  var right=b.x1>=b.x0;
   var sx=tp.x*cam.s+cam.x,sy=tp.y*cam.s+cam.y;
-  if(sx>W-130)right=false;else if(sx<130)right=true;
-  var lx=tp.x+(right?9:-9);
-  var dy=0,ok=false,fnt=null,tw=0,sw=0,sh=0;
-  var sizeSets=[null,10.5];
-  var dimSets=[[0,-16,16,-32,32,-48,48,-64,64,-80,80,-96,96],[0,-14,14,-28,28,-42,42,-56,56,-72,72,-88,88]];
-  for(var pass=0;pass<2&&!ok;pass++){
+  var dy=0,ok=false,fnt=null,tw=0,sw=0,sh=0,right=false;
+  var sizeSets=[null,11,9.5];
+  var dimSets=[[0,-12,12,-24,24,-36,36,-48,48,-60,60],[0,-12,12,-24,24,-36,36,-48,48,-60,60,-72,72],[0,-10,10,-20,20,-30,30,-40,40,-50,50,-60,60,-70,70]];
+  for(var pass=0;pass<3&&!ok;pass++){
     fnt=fontOf(b,sizeSets[pass]);
     ctx.font=fnt;ctx.textBaseline='middle';
     tw=ctx.measureText(b.text).width;
-    sw=tw*cam.s;sh=(sizeSets[pass]?13:16)*cam.s;
+    /* 先按标签宽度决定朝向：右侧放得下优先右，否则左，再不行靠边侧 */
+    if(sx+8+tw<=W-6)right=true;
+    else if(sx-8-tw>=6)right=false;
+    else right=sx<W/2;
+    sw=tw*cam.s;sh=(sizeSets[pass]?13:15)*cam.s;
     var ds=dimSets[pass];
     for(var di=0;di<ds.length;di++){
       var ry0=sy+ds[di]-sh/2-5,ry1=sy+ds[di]+sh/2+5;
@@ -926,7 +928,14 @@ function drawLabel(b,tp,placed,pulse){
   }
   if(ok){
     var ly=tp.y+dy/cam.s;
+    var lx=tp.x+(right?9:-9);
     ctx.globalAlpha=a;
+    if(Math.abs(dy)>16){
+      ctx.globalAlpha=a*0.35;
+      ctx.beginPath();ctx.moveTo(tp.x,tp.y);ctx.lineTo(right?sx+6:sx-6,sy+dy*0.55);
+      ctx.lineWidth=1/cam.s;ctx.strokeStyle=col;ctx.stroke();
+      ctx.globalAlpha=a;
+    }
     ctx.textAlign=right?'left':'right';
     ctx.font=fnt;
     ctx.shadowBlur=0;
@@ -940,11 +949,6 @@ function drawLabel(b,tp,placed,pulse){
     placed.push({x0:right?sx+8:sx-8-sw,y0:sy+dy-sh/2-5,x1:right?sx+8+sw:sx-8,y1:sy+dy+sh/2+5});
   }else{
     b.lb=null;
-    ctx.globalAlpha=a*0.22;
-    ctx.textAlign=right?'left':'right';
-    ctx.font=fontOf(b);
-    ctx.fillStyle=col;
-    ctx.fillText(b.text,lx,tp.y);
   }
   ctx.shadowBlur=0;
   ctx.globalAlpha=1;
@@ -955,7 +959,11 @@ function draw(){
   ctx.translate(cam.x,cam.y);
   ctx.scale(cam.s,cam.s);
   ctx.lineCap='round';
-  var placed=[];
+  var placed=[{x0:-20,y0:-20,x1:W+20,y1:96},{x0:-20,y0:H-150,x1:W+20,y1:H+20}];
+  if(!msgrow.classList.contains('faded')){
+    var br=msgrow.getBoundingClientRect();
+    placed.push({x0:br.left-8,y0:br.top-8,x1:br.right+8,y1:br.bottom+8});
+  }
   for(var i=0;i<branches.length;i++){
     var b=branches[i],p=easeOut(b.prog);
     if(p<=0.01)continue;
@@ -1049,6 +1057,7 @@ function tick(ts){
   var plotPaused=plotov.classList.contains('on');
   var spd=plotPaused?0:(fast?9:1)*(holding?1.1:1.8);
   waitMin+=spd*dt;
+  if(branches.length>=5&&!msgrow.classList.contains('faded'))msgrow.classList.add('faded');
   if(holding){anxiety=Math.max(0,anxiety-0.05*dt);holdT+=dt;}
   else if(!plotPaused){anxiety=Math.min(1,anxiety+0.013*dt);holdT=0;}
   if(anxiety>peak)peak=anxiety;
