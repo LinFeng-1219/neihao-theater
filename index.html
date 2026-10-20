@@ -115,6 +115,15 @@ body{
 #homestats{font-size:11px;color:var(--dim);margin-top:18px;letter-spacing:.05em}
 #dailyLine{font-size:11.5px;color:#a08cff;margin-top:10px;letter-spacing:.08em}
 #homeFuture{font-size:11.5px;color:#7fe0a8;margin-top:8px;letter-spacing:.03em}
+#histCv{display:block;width:100%;height:120px;margin-top:10px;background:rgba(255,255,255,.03);border-radius:10px}
+#histBody{margin-top:10px;max-height:46vh;overflow-y:auto}
+.hhead{font-size:10px;color:var(--dim);letter-spacing:.15em;margin-bottom:6px}
+.hrowline{display:flex;align-items:baseline;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;flex-wrap:wrap}
+.hrowline .hic{font-size:14px}
+.hrowline .hname{color:var(--ink);font-weight:500}
+.hrowline .hrate{color:#ffd27a;font-size:11px}
+.hrowline .hnum{color:var(--dim);font-size:10.5px}
+.hrowline .hdate{color:var(--dim);font-size:10.5px;margin-left:auto}
 .hrow{display:flex;gap:10px;justify-content:center;margin-top:14px}
 .hrow .ghost{padding:9px 18px;font-size:12px}
 .endtitle{font-size:20px;letter-spacing:.15em;text-indent:.15em;margin-bottom:16px}
@@ -148,6 +157,8 @@ body{
   display:flex;align-items:center;gap:10px;background:rgba(28,32,48,.97);border:1px solid rgba(255,255,255,.16);
   border-radius:16px;padding:11px 14px;transform:translateY(-140%);transition:transform .4s;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 #notif.show{transform:translateY(0)}
+#notif{touch-action:none;user-select:none;-webkit-user-select:none}
+#notif::after{content:'‹ 划走';position:absolute;right:-4px;top:50%;transform:translateY(-50%);font-size:10px;color:rgba(255,255,255,.28);letter-spacing:.1em}
 #notif .appic{width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;
   font-size:15px;font-weight:500;color:#fff}
 #notif .ntit{font-size:11px;color:#c9d4ea;display:flex;justify-content:space-between}
@@ -198,6 +209,8 @@ body{
 #futureRow input:focus{border-color:rgba(160,140,255,.6)}
 #futureRow button{font:inherit;font-size:12.5px;color:#0c2413;background:var(--green);border:none;border-radius:10px;padding:0 16px;cursor:pointer}
 #futureRow.saved{display:none}
+.driftword{position:absolute;z-index:9;pointer-events:none;font-size:15px;letter-spacing:.5em;text-indent:.5em;color:#ffd24d;text-shadow:0 0 14px rgba(255,210,77,.55);transform:translate(-50%,-50%);animation:driftup 1.6s ease-out forwards}
+@keyframes driftup{0%{opacity:0;transform:translate(-50%,-50%) translateY(6px) scale(.9)}18%{opacity:1;transform:translate(-50%,-50%) translateY(0) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) translateY(-46px) scale(1.04)}}
 #achline{font-size:12px;color:var(--gold);margin-top:12px}
 .tjgroup.tjach{margin-top:14px}
 .tjchip.ok{color:#ffe9c2;border-color:rgba(255,210,122,.5)}
@@ -299,7 +312,7 @@ button{-webkit-tap-highlight-color:transparent}
     <div class="ov on" id="home">
       <div class="panel">
         <div class="title">念头过境</div>
-        <div class="vol">内耗模拟器 · 手机版 V2.3 · 六幕</div>
+        <div class="vol">内耗模拟器 · 手机版 V2.4 · 六幕</div>
         <p class="desc">每一局，都是一段你经历过的等待。<br>念头如风过境，长成一棵发光的树，<br>而你要练习的，是<b>放下手机</b>。</p>
         <button type="button" class="primary cursor-interaction" id="go">🌙 开始今晚 · 随机剧本</button>
         <div id="chips"></div>
@@ -308,6 +321,8 @@ button{-webkit-tap-highlight-color:transparent}
         <div id="homeFuture" hidden></div>
         <div class="hrow">
           <button type="button" class="ghost cursor-interaction" id="btnTj">念头图鉴</button>
+          <button type="button" class="ghost cursor-interaction" id="btnHist">过往的夜</button>
+          <button type="button" class="ghost cursor-interaction" id="btnRain">🌧 雨声</button>
           <button type="button" class="ghost cursor-interaction" id="btnIntro">玩法</button>
         </div>
       </div>
@@ -323,8 +338,9 @@ button{-webkit-tap-highlight-color:transparent}
           3. <b>按住「放下手机」</b>，跟着呼吸圈的节奏，思绪平息得更快。<br><br>
           4. 游戏会发通知和剧情找上门：忍住别点，怎么接看你自己。<br><br>
           5. 剧情会在中途找上门，每次选择都会改变故事的走向。<br><br>
-          6. 结局之后，有一封写给你的信——不管今晚内耗多重，请读完它。<br><br>
-          7. 念头收进图鉴，成就等你解锁。凌晨时分，你还可以打一行又删掉的话。
+          6. 结局之后，有一封写给你的信——不管今晚内耗多重，请读完它。<br>
+          7. 电脑上也能玩：滚轮缩放，按住左键即长按。<br><br>
+          8. 念头收进图鉴，成就等你解锁。凌晨时分，你还可以打一行又删掉的话。
         </p>
         <button type="button" class="primary cursor-interaction" id="introOk">知道了，开演</button>
       </div>
@@ -414,6 +430,15 @@ button{-webkit-tap-highlight-color:transparent}
         <div class="btnrow"><button type="button" class="primary cursor-interaction" id="tjClose">合上图鉴</button></div>
       </div>
     </div>
+    <div class="ov" id="hist">
+      <div class="panel">
+        <div class="endtitle">过往的夜</div>
+        <div class="stats" id="histCount"></div>
+        <canvas id="histCv" width="330" height="120"></canvas>
+        <div id="histBody"></div>
+        <div class="btnrow"><button type="button" class="primary cursor-interaction" id="histClose">合上</button></div>
+      </div>
+    </div>
   </div>
 </div>
 <div id="rotate">↻ 请竖屏游玩</div>
@@ -426,7 +451,7 @@ var stage=$('stage'),world=$('world'),cv=$('cv'),ctx=cv.getContext('2d');
 var vig=$('vig'),stEl=$('st'),tbig=$('tbig');
 var toastEl=$('toast'),anxfill=$('anxfill'),anxval=$('anxval');
 var holdBtn=$('holdbtn'),holdHint=$('holdhint');
-var homeOv=$('home'),introOv=$('intro'),endOv=$('end'),tjOv=$('tj');
+var homeOv=$('home'),introOv=$('intro'),endOv=$('end'),tjOv=$('tj'),histOv=$('hist');
 var msgrow=$('msgrow'),bubble=$('bubble'),msgtime=$('msgtime');
 var replyrow=$('replyrow'),rbubble=$('rbubble'),replytime=$('replytime');
 var uname=$('uname'),avatar=$('avatar'),soundBtn=$('sound'),reopenBtn=$('reopen');
@@ -559,7 +584,36 @@ loadSave();
 var actx=null,audioReady=false,beatAt=0;
 function ensureAudio(){
   if(actx)return;
-  try{actx=new (window.AudioContext||window.webkitAudioContext)();audioReady=true;}catch(e){}
+  try{actx=new (window.AudioContext||window.webkitAudioContext)();audioReady=true;syncRain();}catch(e){}
+}
+var rainNode=null;
+function syncRain(){
+  if(!actx)return;
+  if(SAVE.rain&&!rainNode){
+    try{
+      var len=actx.sampleRate*2,buf=actx.createBuffer(1,len,actx.sampleRate),d=buf.getChannelData(0);
+      for(var i=0;i<len;i++)d[i]=(Math.random()*2-1)*0.6;
+      var src=actx.createBufferSource();src.buffer=buf;src.loop=true;
+      var lp=actx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=620;lp.Q.value=0.4;
+      var g=actx.createGain();g.gain.value=0.045;
+      var lfo=actx.createOscillator(),lg=actx.createGain();
+      lfo.frequency.value=0.13;lg.gain.value=0.014;
+      lfo.connect(lg);lg.connect(g.gain);lfo.start();
+      src.connect(lp);lp.connect(g);g.connect(actx.destination);src.start();
+      rainNode={src:src,g:g,lfo:lfo};
+    }catch(e){}
+  }else if(!SAVE.rain&&rainNode){
+    try{rainNode.g.gain.setTargetAtTime(0.0001,actx.currentTime,0.4);var rn=rainNode;setTimeout(function(){try{rn.src.stop();rn.lfo.stop();}catch(e){}},900);}catch(e){}
+    rainNode=null;
+  }
+}
+function toggleRain(){
+  SAVE.rain=!SAVE.rain;persist();
+  ensureAudio();if(actx&&actx.state==='suspended')actx.resume();
+  syncRain();
+  var b=$('btnRain');
+  if(b)b.textContent=SAVE.rain?'🌧 雨声 开':'🌧 雨声';
+  toast(SAVE.rain?'雨声起了。让它陪你坐一会儿。':'雨停了。','good');
 }
 function tone(f0,f1,dur,gain,type,when){
   if(!SAVE.sound||!actx)return;
@@ -592,7 +646,7 @@ var branches,used,branchCount,clearCount,peak,anxiety,waitMin,holding,holdT,
 var notifSeen=0,notifTapped=0,tapThink=0,struck=0,emptyTaps=0,bubbleTaps=0,
     breathT=0,breathNext=4,lastPhase=-1,myReplyText=null,holdTotal=0,resistStreak=0;
 var notifData=null,notifTimer=0;
-var mw1Done=false,mw2Done=false;
+var mw1Done=false,mw2Done=false,stillDone=false,plotChoices=[],notifSwipe=false,bridges=[];
 var fakeType=null,fakeStep=0,pendingPenalty=0;
 var pDown=null,pTimer=0,endRateObj=null;
 var cam={x:0,y:0,s:1},camT={x:0,y:0,s:1},camMode='follow';/* follow|full|manual */
@@ -660,7 +714,7 @@ function resetState(){
   holding=false;holdT=0;spawnClock=2.2;clearClock=5;eventClock=6;firstEvent=true;
   pending=null;buzzWin=0;capWarned=false;ended=false;running=false;fast=fast||false;
   notifSeen=0;notifTapped=0;tapThink=0;struck=0;emptyTaps=0;bubbleTaps=0;
-  breathT=0;breathNext=4;lastPhase=-1;myReplyText=null;endRateObj=null;holdTotal=0;resistStreak=0;mw1Done=false;mw2Done=false;
+  breathT=0;breathNext=4;lastPhase=-1;myReplyText=null;endRateObj=null;holdTotal=0;resistStreak=0;mw1Done=false;mw2Done=false;stillDone=false;plotChoices=[];bridges=[];
   clearTimeout(notifTimer);notif.classList.remove('show');notifData=null;
   fakeov.classList.remove('on');replybar.classList.remove('on');
   myreply.hidden=true;withdrawBtn.hidden=true;
@@ -803,7 +857,7 @@ function spawn(parent,gold){
   var tier=Math.min(4,depth);
   if(gold)text=pickText(SC.clear);
   collect(text,gold?'clear':String(tier));
-  var nb={x0:x0,y0:y0,cx:cx,cy:cy,x1:x1,y1:y1,depth:depth,tier:tier,text:text,prog:0,gold:!!gold,kids:0,childRefs:null,gi:gi};
+  var nb={x0:x0,y0:y0,cx:cx,cy:cy,x1:x1,y1:y1,depth:depth,tier:tier,text:text,prog:0,gold:!!gold,kids:0,childRefs:null,gi:gi,parent:parent||null};
   if(parent){parent.childRefs=parent.childRefs||[];parent.childRefs.push(nb);}
   branches.push(nb);
   followPt={x:nb.x1,y:nb.y1};
@@ -875,11 +929,45 @@ function showNotif(app,icon,color,body,onClick){
 }
 notif.addEventListener('click',function(){
   if(!notifData||ended)return;
+  if(notifSwipe){notifSwipe=false;return;}
   notifData.tapped=true;notifTapped++;
   clearTimeout(notifTimer);notif.classList.remove('show');
   var fn=notifData.onClick;notifData=null;
   fn();
 });
+(function(){
+  var sx=0,drag=false,dx=0;
+  notif.addEventListener('pointerdown',function(e){
+    if(!notifData||ended)return;
+    sx=e.clientX;dx=0;drag=true;
+    notif.style.transition='none';
+  });
+  notif.addEventListener('pointermove',function(e){
+    if(!drag)return;
+    dx=Math.min(0,e.clientX-sx);
+    notif.style.transform='translateX('+dx+'px)';
+  });
+  function endDrag(){
+    if(!drag)return;drag=false;
+    notif.style.transition='';
+    notif.style.transform='';
+    if(dx<-60&&notifData){
+      notifSwipe=true;
+      notifData.tapped=true;
+      clearTimeout(notifTimer);notif.classList.remove('show');
+      notifData=null;
+      resistStreak++;bump(-0.03);
+      toast('你把它划走了。有些打扰，是可以送走的。','good',3600);
+      tone(520,780,0.14,0.07,'sine');vib(18);
+      persist();
+      setTimeout(function(){notifSwipe=false;},80);
+    }
+    dx=0;
+  }
+  notif.addEventListener('pointerup',endDrag);
+  notif.addEventListener('pointercancel',endDrag);
+  notif.addEventListener('pointerleave',function(){if(drag)endDrag();});
+})();
 function openFake(title,type){
   fakeTitle.textContent=title;fakeType=type;fakeStep=0;
   pendingPenalty=type==='promo'?0.08:0.15;
@@ -921,7 +1009,9 @@ function updateHUD(){
   tbig.style.textShadow='0 0 '+(18+26*t)+'px rgba(255,77,94,'+(0.25+0.45*t).toFixed(2)+')';
   anxfill.style.width=(anxiety*100).toFixed(1)+'%';
   anxval.textContent=Math.round(anxiety*100)+'%';
-  vig.style.opacity=Math.min(0.75,anxiety*(reduceMotion?0.4:0.55)).toFixed(3);
+  var vo=Math.min(0.75,anxiety*(reduceMotion?0.4:0.55));
+  if(holding)vo*=(0.9+0.1*Math.sin(breathT*Math.PI));
+  vig.style.opacity=vo.toFixed(3);
   if(!reduceMotion){
     if(anxiety>0.85&&!holding)world.classList.add('shake');
     else world.classList.remove('shake');
@@ -966,12 +1056,13 @@ function drawLabel(b,tp,placed,pulse){
   if(ok){
     var ly=tp.y+dy/cam.s;
     var lx=tp.x+(right?9:-9);
+    var disp=b.plot?('✦ '+b.text):b.text;
     ctx.globalAlpha=a;
     ctx.textAlign=right?'left':'right';
     ctx.font=fnt;
     ctx.shadowBlur=0;
     ctx.fillStyle=col;
-    ctx.fillText(b.text,lx,ly);
+    ctx.fillText(disp,lx,ly);
     if(b.strike){
       ctx.beginPath();ctx.moveTo(right?lx:lx-tw,ly);ctx.lineTo(right?lx+tw:lx,ly);
       ctx.lineWidth=1.2/cam.s;ctx.strokeStyle=col;ctx.stroke();
@@ -987,6 +1078,10 @@ function drawLabel(b,tp,placed,pulse){
 function draw(){
   ctx.clearRect(0,0,W,H);
   ctx.save();
+  if(holding){
+    var bs=1+0.007*Math.sin(breathT*Math.PI);
+    ctx.translate(W/2,H/2);ctx.scale(bs,bs);ctx.translate(-W/2,-H/2);
+  }
   ctx.translate(cam.x,cam.y);
   ctx.scale(cam.s,cam.s);
   ctx.lineCap='round';
@@ -994,6 +1089,23 @@ function draw(){
   if(!msgrow.classList.contains('faded')){
     var br=msgrow.getBoundingClientRect();
     placed.push({x0:br.left-8,y0:br.top-8,x1:br.right+8,y1:br.bottom+8});
+  }
+  for(var bi=0;bi<bridges.length;bi++){
+    var bg=bridges[bi];
+    if(!bg.a||!bg.b)continue;
+    var mx=(bg.a.x1+bg.b.x1)/2,my=(bg.a.y1+bg.b.y1)/2-Math.max(26,Math.abs(bg.a.y1-bg.b.y1)*0.4);
+    ctx.save();
+    ctx.strokeStyle='rgba(255,210,77,.55)';ctx.lineWidth=1.2;
+    ctx.shadowColor='#ffd24d';ctx.shadowBlur=10;
+    ctx.beginPath();ctx.moveTo(bg.a.x1,bg.a.y1);ctx.quadraticCurveTo(mx,my,bg.b.x1,bg.b.y1);ctx.stroke();
+    ctx.setLineDash([2,4]);ctx.strokeStyle='rgba(255,210,77,.35)';ctx.lineWidth=0.8;
+    ctx.beginPath();ctx.moveTo(bg.a.x1,bg.a.y1);ctx.quadraticCurveTo(mx,my,bg.b.x1,bg.b.y1);ctx.stroke();
+    ctx.setLineDash([]);
+    var bt=Math.min(1,(bg.a.prog+bg.b.prog)/2);
+    var bx=(1-bt)*(1-bt)*bg.a.x1+2*(1-bt)*bt*mx+bt*bt*bg.b.x1;
+    var by=(1-bt)*(1-bt)*bg.a.y1+2*(1-bt)*bt*my+bt*bt*bg.b.y1;
+    ctx.beginPath();ctx.arc(bx,by,2.2,0,6.2832);ctx.fillStyle='#ffd24d';ctx.fill();
+    ctx.restore();
   }
   for(var i=0;i<branches.length;i++){
     var b=branches[i],p=easeOut(b.prog);
@@ -1165,6 +1277,9 @@ function tick(ts){
     if(!mw1Done&&waitMin>=60){mw1Done=true;toast(SC.mw.m60,'good',4600);}
     if(!mw2Done&&waitMin>=125){mw2Done=true;toast(SC.mw.m125,'good',4600);}
   }
+  if(!stillDone&&waitMin>=95&&branches.length>=12&&tapThink===0&&struck===0&&bubbleTaps===0){
+    stillDone=true;toast('一整晚，你只是看着它们生长。这已经是本事。','good',4600);
+  }
   heartbeat();
   updateHUD();
   updateCamera(dt);
@@ -1186,6 +1301,7 @@ function forceThought(text){
     var nb=branches[branches.length-1];
     nb.text=text;
     nb.tier=Math.max(2,nb.tier);
+    nb.plot=true;
     collect(text,String(nb.tier));
   }
 }
@@ -1206,6 +1322,7 @@ function firePlot(beat){
       plotov.classList.remove('on');
       $('plotOpts').innerHTML='';
       plotFired=false;
+      plotChoices.push(o.t);
       moodPts+=o.d?1:-1;
       bump(o.fx);
       if(o.thought){forceThought(o.thought);toast(o.thought,'warn');}
@@ -1244,6 +1361,11 @@ function finish(){
   setStatus('typing');
   SAVE.stats.games++;
   SAVE.stats.sumT=(SAVE.stats.sumT||0)+branchCount;
+  try{
+    SAVE.history=SAVE.history||[];
+    SAVE.history.push({d:new Date().toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'}),ic:SC.ic,sc:SC.name,rt:rateOf(branchCount).name,pk:Math.round(peak*100),n:branchCount,cl:clearCount});
+    if(SAVE.history.length>60)SAVE.history=SAVE.history.slice(-60);
+  }catch(e){}
   try{
     var kd=function(d){return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
     SAVE.stats.days=SAVE.stats.days||{};
@@ -1345,7 +1467,7 @@ function showEnd(r){
   $('endRate').textContent='「'+r.name+'」'+(climbed?' · 🌄 自救成功':'');
   $('endQuip').textContent=quip;
   $('endTruth').textContent=E?E.truth:SC.truth;
-  $('endStats').textContent='冒出的念头 '+branchCount+' 根 · 峰值内耗 '+Math.round(peak*100)+'% · 放过自己 '+clearCount+' 次'+(climbed?' · 你深陷过，但你自己爬出来了':'');
+  $('endStats').textContent='冒出的念头 '+branchCount+' 根 · 峰值内耗 '+Math.round(peak*100)+'% · 放过自己 '+clearCount+' 次'+(climbed?' · 你深陷过，但你自己爬出来了':'')+(plotChoices.length?' · 抉择：'+plotChoices.join(' → '):'');
   var mainCare=(E&&climbed)?E.careV:((E&&E.care)||'');
   var tail='';
   if(resistStreak>=3)tail+=' 连续按住三次打扰都没点开——定力这种东西，真的是练出来的。';
@@ -1600,8 +1722,48 @@ $('introOk').addEventListener('click',function(){
   startGame(null);
 });
 $('btnIntro').addEventListener('click',function(){introOv.classList.add('on');});
+$('btnRain').addEventListener('click',toggleRain);
 $('btnTj').addEventListener('click',function(){renderTj();tjOv.classList.add('on');});
 $('tjClose').addEventListener('click',function(){tjOv.classList.remove('on');});
+$('btnHist').addEventListener('click',function(){renderHist();histOv.classList.add('on');});
+$('histClose').addEventListener('click',function(){histOv.classList.remove('on');});
+function renderHist(){
+  var h=SAVE.history||[];
+  var hc=$('histCv'),x=hc.getContext('2d');
+  x.clearRect(0,0,hc.width,hc.height);
+  if(h.length<2){
+    $('histCount').textContent=h.length?('只有 '+h.length+' 个夜晚——再玩几晚，这里会长出一条曲线'):'还没有夜晚被记录';
+    x.fillStyle='rgba(255,255,255,.25)';x.font='12px '+FF;x.textAlign='center';
+    x.fillText('内耗峰值曲线 · 从第二晚开始',hc.width/2,64);
+  }else{
+    var pts=h.map(function(o){return o.pk;});
+    var maxp=Math.max(100,Math.max.apply(null,pts));
+    $('histCount').textContent=h.length+' 个夜晚 · 平均峰值 '+Math.round(pts.reduce(function(a,b){return a+b;},0)/pts.length)+'% · 共放过自己 '+h.reduce(function(a,b){return a+b.cl;},0)+' 次';
+    x.strokeStyle='rgba(255,255,255,.12)';x.lineWidth=1;
+    [25,50,75,100].forEach(function(g){
+      var gy=hc.height-8-(g/maxp)*(hc.height-24);
+      x.beginPath();x.moveTo(6,gy);x.lineTo(hc.width-6,gy);x.stroke();
+      x.fillStyle='rgba(255,255,255,.3)';x.font='9px '+FF;x.textAlign='left';x.fillText(g+'%',6,gy-3);
+    });
+    x.beginPath();
+    pts.forEach(function(p,i){
+      var px=10+i*(hc.width-20)/(pts.length-1),py=hc.height-8-(p/maxp)*(hc.height-24);
+      if(i)x.lineTo(px,py);else x.moveTo(px,py);
+    });
+    x.strokeStyle='#ff8a95';x.lineWidth=2;x.shadowColor='#ff4d5e';x.shadowBlur=8;x.stroke();x.shadowBlur=0;
+    pts.forEach(function(p,i){
+      var px=10+i*(hc.width-20)/(pts.length-1),py=hc.height-8-(p/maxp)*(hc.height-24);
+      x.beginPath();x.arc(px,py,2.4,0,6.2832);
+      x.fillStyle=p>=85?'#ff4d5e':(p>=50?'#ffb46b':'#9fe6a8');x.fill();
+    });
+  }
+  var rows=(SAVE.history||[]).slice(-40).reverse(),html='';
+  if(!rows.length)html='<div class="stats">第一局还没打完。今晚就是第一晚。</div>';
+  rows.forEach(function(o){
+    html+='<div class="hrowline"><span class="hic">'+o.ic+'</span><span class="hname">'+o.sc+'</span><span class="hrate">「'+o.rt+'」</span><span class="hnum">峰值 '+o.pk+'% · '+o.n+' 根 · 放过 '+o.cl+' 次</span><span class="hdate">'+o.d+'</span></div>';
+  });
+  $('histBody').innerHTML=rows.length?'<div class="hhead">近 '+rows.length+' 晚（新→旧）</div>'+html:'<div class="stats"></div>';
+}
 $('back').addEventListener('click',goHome);
 $('btnSwitch').addEventListener('click',goHome);
 $('btnAgain').addEventListener('click',function(){startGame(SC);});
@@ -1684,9 +1846,39 @@ function strikeThought(b){
   if(b.strike)return;
   b.strike=true;struck++;clearCount++;
   bump(-0.08);SAVE.stats.clears++;moodPts--;
-  toast(Math.random()<0.3?pick(CARE):'划掉一个念头。','good');
+  if(struck===1&&!SAVE.taughtStrike){
+    SAVE.taughtStrike=true;persist();
+    toast('断念。这就是「放下」的动作——它可以是学会的。','good',4200);
+  }else toast(Math.random()<0.3?pick(CARE):'划掉一个念头。','good');
+  var sx=(b.x1*cam.s+cam.x),sy=(b.y1*cam.s+cam.y);
+  driftWord('断 念',sx,sy);
+  checkBridge(b);
   tone(660,990,0.18,0.08,'sine');vib(25);
   persist();
+}
+function checkBridge(b){
+  try{
+    var p=b.parent;
+    if(!p||p.bridged)return;
+    var sibs=(p.childRefs||[]).filter(function(c){return c.strike;});
+    if(sibs.length>=2){
+      p.bridged=true;
+      bridges.push({a:sibs[0],b:sibs[1]});
+      bump(-0.05);
+      setTimeout(function(){if(!ended)toast('两条深念头之间，你搭了一座桥。','good',4200);},900);
+    }
+  }catch(e){}
+}
+function driftWord(txt,x,y){
+  try{
+    var d=document.createElement('div');
+    d.className='driftword';
+    d.textContent=txt;
+    d.style.left=Math.max(40,Math.min(W-80,x))+'px';
+    d.style.top=Math.max(80,Math.min(H-160,y))+'px';
+    world.appendChild(d);
+    setTimeout(function(){d.remove();},1600);
+  }catch(e){}
 }
 cv.addEventListener('pointerdown',function(e){
   if(holding||(!running&&!ended))return;
@@ -1771,6 +1963,7 @@ function endPointer(e){
         emptyTaps++;
         if(emptyTaps===3)toast('别戳了，他不会因此多回你一句。');
         if(emptyTaps===7)toast('你戳屏幕的样子，像极了他不回你。');
+        if(emptyTaps===2&&!SAVE.taughtStrike)toast('长按亮起的念头，可以把它划掉。','good',4200);
       }
     }
   }
