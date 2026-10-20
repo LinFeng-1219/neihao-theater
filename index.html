@@ -671,11 +671,13 @@ function colX(i){return anchor.x+(RUN.gap||112)*i;}
 function placeY(ci,yTry){
   var col=colYs[ci]||(colYs[ci]=[]);
   yTry=Math.max(42,Math.min(H-70,yTry));
+  var base=yTry;
   for(var k=0;k<9;k++){
     var ok=true;
     for(var j=0;j<col.length;j++){if(Math.abs(col[j]-yTry)<34){ok=false;break;}}
     if(ok)break;
     yTry+=(Math.random()*2-1)*46;
+    if(k<6)yTry=Math.max(base-110,Math.min(base+110,yTry));
     yTry=Math.max(42,Math.min(H-70,yTry));
   }
   col.push(yTry);
@@ -904,7 +906,7 @@ function drawLabel(b,tp,placed,pulse){
   var sx=tp.x*cam.s+cam.x,sy=tp.y*cam.s+cam.y;
   var dy=0,ok=false,fnt=null,tw=0,sw=0,sh=0,right=false;
   var sizeSets=[null,11,9.5];
-  var dimSets=[[0,-12,12,-24,24,-36,36,-48,48,-60,60],[0,-12,12,-24,24,-36,36,-48,48,-60,60,-72,72],[0,-10,10,-20,20,-30,30,-40,40,-50,50,-60,60,-70,70]];
+  var dimSets=[[0,-10,10,-20,20,-30,30,-40,40],[0,-12,12,-24,24,-36,36,-48,48],[0,-14,14,-28,28,-42,42,-56,56]];
   for(var pass=0;pass<3&&!ok;pass++){
     fnt=fontOf(b,sizeSets[pass]);
     ctx.font=fnt;ctx.textBaseline='middle';
@@ -930,12 +932,6 @@ function drawLabel(b,tp,placed,pulse){
     var ly=tp.y+dy/cam.s;
     var lx=tp.x+(right?9:-9);
     ctx.globalAlpha=a;
-    if(Math.abs(dy)>16){
-      ctx.globalAlpha=a*0.35;
-      ctx.beginPath();ctx.moveTo(tp.x,tp.y);ctx.lineTo(right?sx+6:sx-6,sy+dy*0.55);
-      ctx.lineWidth=1/cam.s;ctx.strokeStyle=col;ctx.stroke();
-      ctx.globalAlpha=a;
-    }
     ctx.textAlign=right?'left':'right';
     ctx.font=fnt;
     ctx.shadowBlur=0;
