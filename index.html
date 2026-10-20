@@ -560,7 +560,8 @@ var notifSeen=0,notifTapped=0,tapThink=0,struck=0,emptyTaps=0,bubbleTaps=0,
 var notifData=null,notifTimer=0;
 var fakeType=null,fakeStep=0,pendingPenalty=0;
 var pDown=null,pTimer=0,endRateObj=null;
-var cam={x:0,y:0,s:1},camT={x:0,y:0,s:1},autoFit=true;
+var cam={x:0,y:0,s:1},camT={x:0,y:0,s:1},camMode='follow';/* follow|full|manual */
+var followPt=null,followSm=null,FOLLOW_S=0.8;
 var pointers=new Map(),pinch=null,pan=null,lastTapT=0,lastUserCam=0;
 var plotIdx=0,typeDone=false,plotCur=null,plotFired=false,endKey=null,moodPts=0;
 var RUN={};
@@ -632,7 +633,7 @@ function resetState(){
   plotIdx=0;typeDone=false;plotCur=null;plotFired=false;endKey=null;moodPts=0;
   plotov.classList.remove('on');typeov.classList.remove('on');
   pDown=null;clearTimeout(pTimer);
-  cam={x:0,y:0,s:1};camT={x:0,y:0,s:1};autoFit=true;
+  cam={x:0,y:0,s:1};camT={x:0,y:0,s:1};camMode='follow';followPt=null;followSm=null;
   pointers.clear();pinch=null;pan=null;lastTapT=0;lastUserCam=0;
   fitBtn.hidden=true;
   colYs={};
@@ -722,6 +723,7 @@ function spawnEcho(b){
   b.childRefs=b.childRefs||[];b.childRefs.push(nb);
   b.kids++;
   branches.push(nb);
+  followPt={x:nb.x1,y:nb.y1};
   branchCount++;
   tone(360,220,0.12,0.05,'sine');
 }
@@ -767,6 +769,7 @@ function spawn(parent,gold){
   var nb={x0:x0,y0:y0,cx:cx,cy:cy,x1:x1,y1:y1,depth:depth,tier:tier,text:text,prog:0,gold:!!gold,kids:0,childRefs:null,gi:gi};
   if(parent){parent.childRefs=parent.childRefs||[];parent.childRefs.push(nb);}
   branches.push(nb);
+  followPt={x:nb.x1,y:nb.y1};
   branchCount++;
   if(gold){clearCount++;SAVE.stats.clears++;tone(660,990,0.16,0.08,'sine');}
   else tone(420+Math.random()*260,null,0.08,0.045,'triangle');
@@ -926,7 +929,7 @@ function drawLabel(b,tp,placed,pulse){
     ctx.globalAlpha=a;
     ctx.textAlign=right?'left':'right';
     ctx.font=fnt;
-    ctx.shadowColor=col;ctx.shadowBlur=5;
+    ctx.shadowBlur=0;
     ctx.fillStyle=col;
     ctx.fillText(b.text,lx,ly);
     if(b.strike){
@@ -998,11 +1001,18 @@ function draw(){
   ctx.restore();
 }
 function updateCamera(dt){
-  if(!autoFit&&!pointers.size&&!pan&&!pDown&&Date.now()-lastUserCam>6000){
-    autoFit=true;fitBtn.hidden=true;
-    if(!SAVE.seenCamHint){SAVE.seenCamHint=true;persist();toast('没有操作时，视角会自动回到全景','good',3200);}
+  if(camMode==='manual'&&!pointers.size&&!pan&&!pDown&&Date.now()-lastUserCam>6000){
+    camMode='follow';
+    if(!SAVE.seenCamHint){SAVE.seenCamHint=true;persist();toast('松开手后，视角会自动跟随新念头','good',3200);}
   }
-  if(autoFit&&branches.length){
+  if(camMode==='follow'&&branches.length){
+    var f=followPt||{x:anchor.x,y:anchor.y};
+    if(!followSm)followSm={x:f.x,y:f.y};
+    followSm.x+=(f.x-followSm.x)*Math.min(1,dt*2.2);
+    followSm.y+=(f.y-followSm.y)*Math.min(1,dt*1.4);
+    var fs=FOLLOW_S;
+    camT={x:W*0.42-followSm.x*fs,y:(92+(H-140))/2-followSm.y*fs,s:fs};
+  }else if(camMode==='full'&&branches.length){
     var minx=anchor.x,miny=anchor.y,maxx=anchor.x,maxy=anchor.y;
     for(var i=0;i<branches.length;i++){
       var q=qp(branches[i],Math.min(1,branches[i].prog));
@@ -1018,11 +1028,11 @@ function updateCamera(dt){
       camT={x:((anchor.x-40)+(W-14))/2-cx*ts,y:(92+(H-140))/2-cy*ts,s:ts};
     }else camT={x:0,y:0,s:1};
   }
-  var k=Math.min(1,dt*3.5);
+  var k=Math.min(1,dt*2.4);
   cam.x+=(camT.x-cam.x)*k;
-  cam.y+=(camT.y-cam.y)*k;
+  cam.y+=(camT.y-cam.y)*Math.min(1,dt*1.8);
   cam.s+=(camT.s-cam.s)*k;
-  fitBtn.hidden=autoFit;
+  fitBtn.hidden=(camMode==='full');
 }
 
 /* ================= 主循环 ================= */
@@ -1405,6 +1415,7 @@ function startGame(scene){
   homeOv.classList.remove('on');endOv.classList.remove('on');tjOv.classList.remove('on');introOv.classList.remove('on');
   stage.classList.remove('idle');
   computeAnchor();
+  cam={x:W*0.42-anchor.x,y:(92+(H-140))/2-anchor.y,s:1};camT={x:cam.x,y:cam.y,s:1};
   sendContact.textContent='给 '+SC.contact;
   msgInput.value=SC.msg;
   sendOv.classList.add('on');
@@ -1654,7 +1665,7 @@ function zoomAt(x,y,ns){
 function zoomToggle(x,y){zoomAt(x,y,cam.s>1.4?1:2);stopAutoFit();}
 function stopAutoFit(){
   lastUserCam=Date.now();
-  if(autoFit){autoFit=false;fitBtn.hidden=false;}
+  if(camMode!=='manual')camMode='manual';
 }
 function clampCam(){
   var m=320*cam.s;
@@ -1662,7 +1673,7 @@ function clampCam(){
   cam.y=Math.min(H*0.5,Math.max(-m,cam.y));
   camT={x:cam.x,y:cam.y,s:cam.s};
 }
-fitBtn.addEventListener('click',function(){autoFit=true;fitBtn.hidden=true;});
+fitBtn.addEventListener('click',function(){camMode='full';});
 cv.addEventListener('mousemove',function(e){
   if(!running||ended){cv.style.cursor='default';return;}
   var r=cv.getBoundingClientRect();
