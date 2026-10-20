@@ -1,0 +1,1683 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#05060b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>念头过境 · 内耗模拟器</title>
+<style>
+:root{
+  --ink:#e9edf5; --dim:#8a93a6; --green:#95ec69; --red:#ff4d5e; --gold:#ffd27a;
+  --line:rgba(255,255,255,.14); --panel:rgba(16,20,34,.94);
+}
+html,body{height:100%;overflow:hidden}
+body{
+  margin:0;background:#020308;color:var(--ink);
+  font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  overscroll-behavior:none;touch-action:manipulation;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  -webkit-font-smoothing:antialiased;
+}
+#app{position:fixed;inset:0;display:flex;justify-content:center;background:#020308}
+#stage{
+  position:relative;width:100%;max-width:520px;height:100%;overflow:hidden;
+  background:radial-gradient(130% 80% at 18% 30%, #0a0f1e 0%, #05060b 55%, #030408 100%);
+}
+#stage::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.7) 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 9%, rgba(255,255,255,.5) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 62% 30%, rgba(255,255,255,.35) 50%, transparent 51%),
+    radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,.5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 33% 7%, rgba(255,255,255,.6) 50%, transparent 51%);
+}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#vig{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .5s;
+  background:radial-gradient(ellipse at center, transparent 40%, rgba(255,40,60,.6) 100%)}
+#world{position:absolute;inset:0}
+#world.shake{animation:nshake .13s infinite}
+@keyframes nshake{0%{transform:translate(0,0)}25%{transform:translate(1px,-1px)}50%{transform:translate(-1px,1px)}75%{transform:translate(1px,1px)}100%{transform:translate(0,0)}}
+
+/* ---------- HUD ---------- */
+.hud{z-index:4}
+#hdr{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;
+  padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 12px;z-index:5;
+  background:linear-gradient(rgba(4,5,10,.92),rgba(4,5,10,0))}
+#back{font:inherit;font-size:22px;line-height:1;color:var(--dim);background:none;border:none;padding:4px 10px 4px 0}
+#avatar{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#2a3350,#141a2c);
+  display:flex;align-items:center;justify-content:center;font-size:14px;color:#aebadd;
+  border:1px solid rgba(255,255,255,.1);flex:none;overflow:hidden}
+#uname{font-size:15px;font-weight:500;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#st{font-size:11px;color:var(--dim);margin-top:2px}
+#st.typing{color:var(--green)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:1px}
+.dot.off{background:#8a93a6}
+#sound{margin-left:auto;font:inherit;font-size:11px;color:var(--dim);background:rgba(255,255,255,.06);
+  border:1px solid var(--line);border-radius:999px;padding:6px 13px}
+#timer{position:absolute;top:calc(env(safe-area-inset-top,0px) + 68px);left:20px}
+#tbig{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;font-size:34px;font-weight:500;
+  letter-spacing:2px;text-shadow:0 0 18px rgba(255,255,255,.25);font-variant-numeric:tabular-nums}
+#tsub{font-size:11px;color:var(--dim);margin-top:4px}
+#msgrow{position:absolute;left:7%;top:44%;max-width:270px}
+#bubble{position:relative;background:var(--green);color:#0c2413;font-size:16px;padding:11px 18px;
+  border-radius:4px 14px 14px 14px;box-shadow:0 0 26px rgba(149,236,105,.35),0 4px 14px rgba(0,0,0,.5);word-break:break-all}
+#msgtime{font-size:11px;color:var(--dim);margin-top:6px;letter-spacing:.05em}
+#replyrow{position:absolute;left:7%;top:60%;max-width:290px}
+#rbubble{background:#232a3d;color:#eef2ff;font-size:15px;padding:11px 18px;border-radius:4px 14px 14px 14px;
+  box-shadow:0 0 20px rgba(120,150,255,.15),0 4px 14px rgba(0,0,0,.5);word-break:break-all}
+#toast{position:absolute;top:calc(env(safe-area-inset-top,0px) + 66px);left:50%;transform:translate(-50%,-8px);
+  opacity:0;transition:all .35s;background:var(--panel);border:1px solid var(--line);border-radius:999px;
+  padding:8px 16px;font-size:12px;z-index:6;pointer-events:none;white-space:nowrap;max-width:92%;
+  overflow:hidden;text-overflow:ellipsis}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.warn{border-color:rgba(255,77,94,.55);color:#ffd7db}
+#toast.good{border-color:rgba(149,236,105,.45);color:#dcffc9}
+#anx{position:absolute;top:calc(env(safe-area-inset-top,0px) + 138px);left:20px;width:118px}
+#anx .lbl{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:5px}
+#anx .track{height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden}
+#anxfill{height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--red));border-radius:2px;transition:width .3s}
+#holdwrap{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);
+  z-index:5;text-align:center;width:100%;pointer-events:none}
+#holdbtn{pointer-events:auto;font:inherit;font-size:14px;letter-spacing:1px;color:var(--ink);
+  background:rgba(20,26,44,.88);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:14px 32px;
+  touch-action:none;box-shadow:0 0 24px rgba(149,236,105,.12);transition:background .2s,border-color .2s,box-shadow .2s}
+#holdbtn.holding{background:rgba(149,236,105,.14);border-color:rgba(149,236,105,.55);box-shadow:0 0 34px rgba(149,236,105,.3)}
+#holdbtn:disabled{opacity:.45}
+#holdhint{font-size:11px;color:var(--dim);margin-top:7px}
+#reopen{position:absolute;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:8;
+  font:inherit;font-size:12px;color:var(--ink);background:rgba(20,26,44,.88);border:1px solid rgba(255,255,255,.2);
+  border-radius:999px;padding:9px 18px}
+#stage.idle .hud,#stage.idle #holdwrap,#stage.idle #reopen{display:none}
+
+/* ---------- Overlays ---------- */
+.ov{position:absolute;inset:0;z-index:10;background:rgba(3,4,8,.9);backdrop-filter:blur(6px);
+  display:flex;padding:24px 22px;opacity:0;pointer-events:none;transition:opacity .5s;
+  overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ov.on{opacity:1;pointer-events:auto}
+.panel{max-width:460px;width:100%;margin:auto;text-align:center}
+.title{font-size:34px;font-weight:500;letter-spacing:.3em;text-indent:.3em;text-shadow:0 0 30px rgba(255,255,255,.35)}
+.vol{font-size:12px;color:var(--dim);letter-spacing:.25em;margin-top:10px}
+.desc{font-size:13px;line-height:2.1;color:#c9d4ea;margin-top:18px}
+.desc.dim{color:var(--dim)}
+.desc b{font-weight:500;color:#dcffc9}
+.primary{font:inherit;font-size:15px;font-weight:500;background:var(--green);color:#0c2413;border:none;
+  border-radius:999px;padding:14px 34px;margin-top:22px;box-shadow:0 0 30px rgba(149,236,105,.4)}
+.ghost{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid rgba(255,255,255,.22);
+  border-radius:999px;padding:12px 22px}
+.foot{font-size:11px;color:var(--dim);margin-top:16px}
+#chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
+.chip{font:inherit;font-size:12px;color:#c9d4ea;background:rgba(255,255,255,.05);border:1px solid var(--line);
+  border-radius:999px;padding:9px 13px}
+.chip .ic{margin-right:5px}
+#homestats{font-size:11px;color:var(--dim);margin-top:18px;letter-spacing:.05em}
+.hrow{display:flex;gap:10px;justify-content:center;margin-top:14px}
+.hrow .ghost{padding:9px 18px;font-size:12px}
+.endtitle{font-size:20px;letter-spacing:.15em;text-indent:.15em;margin-bottom:16px}
+.quote{display:inline-block;background:#232a3d;color:#eef2ff;font-size:15px;padding:12px 20px;
+  border-radius:4px 14px 14px 14px;box-shadow:0 0 20px rgba(120,150,255,.15);max-width:100%;word-break:break-all}
+.stats{font-size:12px;color:var(--dim);margin-top:16px;letter-spacing:.05em}
+.rate{font-size:30px;color:var(--gold);margin-top:12px;text-shadow:0 0 24px rgba(255,210,122,.4)}
+.quip{font-size:13px;color:#c9d4ea;line-height:1.8;margin-top:8px}
+.truth{font-size:11px;color:var(--dim);margin-top:14px}
+#shareImg{display:block;margin:16px auto 0;max-width:250px;width:64%;border-radius:10px;border:1px solid rgba(255,255,255,.12)}
+#shareHint{font-size:11px;color:var(--dim);margin-top:8px}
+.btnrow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+
+/* ---------- 图鉴 ---------- */
+#tjBody{text-align:left}
+.tjgroup{margin-top:18px}
+.tjglabel{font-size:12px;letter-spacing:.1em;margin-bottom:9px}
+.tjglabel .cnt{color:var(--dim);margin-left:8px;letter-spacing:0}
+.tjchips{display:flex;flex-wrap:wrap;gap:7px}
+.tjchip{font-size:11px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);color:#c9d4ea;
+  background:rgba(255,255,255,.04);max-width:100%;word-break:break-all}
+.tjchip.miss{color:#59627a;border-style:dashed;background:transparent}
+.gA .tjglabel{color:#c9d4ea}.gB .tjglabel{color:#ffd9a8}.gC .tjglabel{color:var(--red)}.gD .tjglabel{color:var(--gold)}
+.gA .tjchip{border-color:rgba(201,212,234,.35)}
+.gB .tjchip{border-color:rgba(255,217,168,.4)}
+.gC .tjchip{border-color:rgba(255,77,94,.45);color:#ffc9cf}
+.gD .tjchip{border-color:rgba(255,210,122,.45);color:#ffe9c2}
+
+/* ---------- v1.1 互动 ---------- */
+#notif{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;z-index:7;
+  display:flex;align-items:center;gap:10px;background:rgba(28,32,48,.97);border:1px solid rgba(255,255,255,.16);
+  border-radius:16px;padding:11px 14px;transform:translateY(-140%);transition:transform .4s;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#notif.show{transform:translateY(0)}
+#notif .appic{width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:500;color:#fff}
+#notif .ntit{font-size:11px;color:#c9d4ea;display:flex;justify-content:space-between}
+#notif .ntit .tm{color:var(--dim);font-size:10px}
+#notif .nbody{font-size:13px;margin-top:2px}
+#notif .nhint{font-size:10px;color:var(--dim);margin-top:3px}
+.ov.thin{background:rgba(3,4,8,.84)}
+#fakeov .appcard{background:#10141f;border:1px solid rgba(255,255,255,.14);border-radius:18px;overflow:hidden;max-width:360px;margin:auto;text-align:left}
+#fakeov .apphead{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px;color:#c9d4ea}
+#fakeov .apphead .dot9{width:7px;height:7px;border-radius:50%;background:var(--red)}
+#fakeov .appbody{padding:18px 16px;font-size:13px;line-height:1.9;color:#e9edf5}
+#fakeov .bigbtn{display:block;width:100%;margin-top:14px;font:inherit;font-size:14px;color:#0c2413;background:var(--green);border:none;border-radius:10px;padding:12px}
+#fakeov .gold{color:var(--gold);font-size:16px;margin-top:6px}
+#fakeov .moments-img{height:150px;border-radius:10px;margin-top:10px;background:linear-gradient(135deg,#20304d,#101a30 60%,#2a1a30);position:relative;overflow:hidden}
+#fakeov .moments-img::after{content:'🌙';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;opacity:.8}
+#fakeov .mmeta{font-size:11px;color:var(--dim);margin-top:10px}
+#fakeov .mpunch{font-size:12px;color:#ffb0b8;margin-top:14px;border-top:1px dashed rgba(255,255,255,.14);padding-top:12px}
+#sendOv .panel{max-width:420px}
+#msgInput{width:100%;font:inherit;font-size:15px;color:var(--ink);background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:13px 15px;-webkit-user-select:text;user-select:text}
+#msgInput:focus{outline:none;border-color:rgba(149,236,105,.55)}
+.sendhint{font-size:11px;color:var(--dim);margin-top:10px}
+#myreply{position:absolute;right:7%;top:70%;max-width:260px;text-align:left}
+#myreply .bubble{background:var(--green);color:#0c2413;font-size:15px;padding:11px 16px;border-radius:14px 4px 14px 14px;
+  box-shadow:0 0 22px rgba(149,236,105,.3);word-break:break-all}
+#withdraw{font:inherit;font-size:11px;color:var(--dim);background:none;border:none;margin-top:6px;text-decoration:underline}
+#replybar{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);transform:translateX(-50%);
+  z-index:6;width:94%;max-width:420px;display:none}
+#replybar.on{display:block}
+#replybar .rchips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#replybar .rchip{font:inherit;font-size:12px;color:#c9d4ea;background:rgba(255,255,255,.07);border:1px solid var(--line);
+  border-radius:999px;padding:9px 14px}
+#breath{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 106px);transform:translateX(-50%);
+  width:118px;height:118px;border-radius:50%;border:1.5px solid rgba(149,236,105,.5);display:none;z-index:4;
+  align-items:center;justify-content:center;pointer-events:none}
+#breath.on{display:flex;animation:breathe 4s ease-in-out infinite}
+#breath .btxt{font-size:13px;color:#dcffc9;letter-spacing:.3em;text-indent:.3em}
+#breath.pulse{border-color:rgba(255,210,122,.9);box-shadow:0 0 24px rgba(255,210,122,.25)}
+@keyframes breathe{0%,100%{transform:translateX(-50%) scale(.82);opacity:.55}50%{transform:translateX(-50%) scale(1.08);opacity:1}}
+@media (prefers-reduced-motion: reduce){#breath.on{animation:none}}
+#careBox{margin-top:16px;padding:14px 16px;border:1px solid rgba(255,210,122,.35);border-radius:12px;background:rgba(255,210,122,.06);text-align:left}
+#careBox .caret{font-size:12px;color:var(--gold);letter-spacing:.1em;margin-bottom:6px}
+#careBox .carec{font-size:13px;line-height:1.9;color:#ffe9c2}
+#careBox .caref{font-size:11px;color:var(--dim);margin-top:8px}
+#achline{font-size:12px;color:var(--gold);margin-top:12px}
+.tjgroup.tjach{margin-top:14px}
+.tjchip.ok{color:#ffe9c2;border-color:rgba(255,210,122,.5)}
+
+#plotov .plotcard{background:#10141f;border:1px solid rgba(255,255,255,.16);border-radius:16px;max-width:380px;margin:auto;text-align:left;overflow:hidden}
+#plotov .ptime{display:inline-block;font-size:10px;color:#0c2413;background:var(--green);border-radius:4px;padding:2px 8px;margin:14px 14px 0}
+#plotov .ptitle{font-size:12px;color:var(--dim);padding:8px 14px 0}
+#plotov .pbody{font-size:14px;line-height:1.9;padding:6px 14px 4px}
+#plotov .popts{display:flex;flex-direction:column;gap:8px;padding:12px 14px 16px}
+#plotov .popt{font:inherit;font-size:13px;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:10px;padding:11px 14px;text-align:left}
+#plotov .popt.deep{color:#ffd7db;border-color:rgba(255,77,94,.4)}
+#typeov .panel{max-width:400px}
+#typeInput{width:100%;font:inherit;font-size:14px;color:var(--ink);background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:12px 14px;-webkit-user-select:text;user-select:text}
+#typeInput:focus{outline:none;border-color:rgba(255,77,94,.5)}
+#fitBtn{position:absolute;top:calc(env(safe-area-inset-top,0px) + 66px);right:14px;z-index:6;
+  font:inherit;font-size:12px;color:var(--ink);background:rgba(20,26,44,.88);border:1px solid rgba(255,255,255,.2);
+  border-radius:999px;padding:8px 14px}
+
+#rotate{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;
+  background:#05060b;color:var(--dim);font-size:15px;letter-spacing:.2em}
+@media (orientation:landscape) and (max-height:480px){#rotate{display:flex}}
+.cursor-interaction{cursor:pointer}
+button{-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage" class="idle">
+    <div id="world">
+      <canvas id="cv"></canvas>
+      <div id="vig"></div>
+
+      <header id="hdr" class="hud">
+        <button type="button" id="back" class="cursor-interaction" aria-label="返回主页">‹</button>
+        <span id="avatar" aria-hidden="true">他</span>
+        <div>
+          <div id="uname">他</div>
+          <div id="st"><span class="dot"></span>在线</div>
+        </div>
+        <button type="button" id="sound" class="cursor-interaction" aria-pressed="false">♪ 音效 关</button>
+      </header>
+
+      <div id="timer" class="hud">
+        <div id="tbig">0:00</div>
+        <div id="tsub">已发送 23:47 · 对方未回复</div>
+      </div>
+
+      <div id="msgrow" class="hud">
+        <div id="bubble">到家了吗？</div>
+        <div id="msgtime">23:47</div>
+      </div>
+
+      <div id="replyrow" class="hud" hidden>
+        <div id="rbubble"></div>
+        <div id="replytime">02:30</div>
+      </div>
+
+      <div id="toast" role="status" aria-live="polite"></div>
+
+      <div id="anx" class="hud">
+        <div class="lbl"><span>内耗值</span><span id="anxval">0%</span></div>
+        <div class="track"><div id="anxfill"></div></div>
+      </div>
+
+      <div id="holdwrap">
+        <button type="button" class="cursor-interaction" id="holdbtn" aria-pressed="false"
+          aria-label="按住表示放下手机，思绪会平息">按住 · 放下手机</button>
+        <div id="holdhint">盯着屏幕，念头会疯长</div>
+      </div>
+
+      <button type="button" id="reopen" class="cursor-interaction" hidden>结算</button>
+      <button type="button" id="fitBtn" class="hud cursor-interaction" hidden aria-label="回到全景">⤢ 全景</button>
+
+      <div id="notif" class="cursor-interaction" role="button" aria-label="通知，点按查看">
+        <div class="appic" id="notifIc">P</div>
+        <div style="flex:1;min-width:0">
+          <div class="ntit"><span id="notifApp">拼多多</span><span class="tm">现在</span></div>
+          <div class="nbody" id="notifBody"></div>
+          <div class="nhint">点开查看 · 或忍住别点</div>
+        </div>
+      </div>
+      <div id="myreply" hidden>
+        <div class="bubble" id="myreplyText"></div>
+        <button type="button" id="withdraw" class="cursor-interaction" hidden>撤回</button>
+      </div>
+      <div id="replybar">
+        <div class="rchips">
+          <button type="button" class="rchip cursor-interaction" data-r="哈哈，没事啦">哈哈，没事啦</button>
+          <button type="button" class="rchip cursor-interaction" data-r="早点睡">早点睡</button>
+          <button type="button" class="rchip cursor-interaction" data-r="我有点想你">我有点想你</button>
+        </div>
+      </div>
+      <div id="breath"><div class="btxt" id="breathTxt">吸 —</div></div>
+    </div>
+
+    <!-- 主页 -->
+    <div class="ov on" id="home">
+      <div class="panel">
+        <div class="title">念头过境</div>
+        <div class="vol">内耗模拟器 · 手机版 V2.0</div>
+        <p class="desc">每一局，都是一段你经历过的等待。<br>念头如风过境，长成一棵发光的树，<br>而你要练习的，是<b>放下手机</b>。</p>
+        <button type="button" class="primary cursor-interaction" id="go">🌙 开始今晚 · 随机剧本</button>
+        <div id="chips"></div>
+        <div id="homestats"></div>
+        <div class="hrow">
+          <button type="button" class="ghost cursor-interaction" id="btnTj">念头图鉴</button>
+          <button type="button" class="ghost cursor-interaction" id="btnIntro">玩法</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 玩法 -->
+    <div class="ov" id="intro">
+      <div class="panel">
+        <div class="endtitle">玩法</div>
+        <p class="desc" style="text-align:left">
+          1. 开局真的由你来打这句话。发出去，就收不回了。<br><br>
+          2. 每个亮起的念头都可以交互：<b>点一下</b>，顺着它越想越深（更焦虑）；<b>长按</b>，把它划掉（放过自己）。<br><br>
+          3. <b>按住「放下手机」</b>，跟着呼吸圈的节奏，思绪平息得更快。<br><br>
+          4. 游戏会发通知和剧情找上门：忍住别点，怎么接看你自己。<br><br>
+          5. 剧情会在中途找上门，每次选择都会改变故事的走向。<br><br>
+          6. 结局之后，有一封写给你的信——不管今晚内耗多重，请读完它。<br><br>
+          7. 念头收进图鉴，成就等你解锁。凌晨时分，你还可以打一行又删掉的话。
+        </p>
+        <button type="button" class="primary cursor-interaction" id="introOk">知道了，开演</button>
+      </div>
+    </div>
+
+    <!-- 编辑并发送 -->
+    <div class="ov" id="sendOv" style="z-index:9">
+      <div class="panel">
+        <div class="endtitle" id="sendContact">给 他</div>
+        <input id="msgInput" maxlength="40" autocomplete="off" enterkeyhint="send" aria-label="要发送的消息">
+        <div class="sendhint">可以改成你想说的话 · 发出去，就收不回了</div>
+        <button type="button" class="primary cursor-interaction" id="btnSend">发送 ↑</button>
+      </div>
+    </div>
+
+    <!-- 假 App 浮层 -->
+    <div class="ov thin" id="fakeov" style="z-index:12">
+      <div class="panel">
+        <div class="appcard">
+          <div class="apphead"><span class="dot9"></span><span id="fakeTitle">通知</span></div>
+          <div class="appbody" id="fakeBody"></div>
+        </div>
+        <div class="btnrow"><button type="button" class="ghost cursor-interaction" id="fakeClose">不看了</button></div>
+      </div>
+    </div>
+
+    <!-- 剧情卡 -->
+    <div class="ov thin" id="plotov" style="z-index:11">
+      <div class="panel">
+        <div class="plotcard">
+          <span class="ptime" id="plotTime">00:32</span>
+          <div class="ptitle" id="plotTitle"></div>
+          <div class="pbody" id="plotBody"></div>
+          <div class="popts" id="plotOpts"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 打字又删掉 -->
+    <div class="ov thin" id="typeov" style="z-index:13">
+      <div class="panel">
+        <div class="endtitle">你打了一行字</div>
+        <p class="desc dim" style="margin-top:10px">实在忍不住，你打下了——</p>
+        <input id="typeInput" maxlength="30" autocomplete="off" aria-label="想说的那句话" placeholder="想说的那句话…">
+        <div class="btnrow">
+          <button type="button" class="ghost cursor-interaction" id="btnDel">删掉它</button>
+        </div>
+        <div class="foot">打完的话，最后还是删掉了</div>
+      </div>
+    </div>
+
+    <!-- 结算 -->
+    <div class="ov" id="end" role="dialog" aria-label="本局结算">
+      <div class="panel">
+        <div class="endtitle" id="endTitle">02:30 · 他回复了</div>
+        <div><span class="quote" id="endQuote"></span></div>
+        <div class="stats" id="endStats"></div>
+        <div class="rate" id="endRate"></div>
+        <div class="quip" id="endQuip"></div>
+        <div id="careBox" hidden></div>
+        <div id="achline" hidden></div>
+        <div class="truth" id="endTruth"></div>
+        <img id="shareImg" alt="本局思维树海报" hidden>
+        <div id="shareHint" hidden></div>
+        <div class="btnrow">
+          <button type="button" class="primary cursor-interaction" id="btnAgain">再来一局</button>
+          <button type="button" class="ghost cursor-interaction" id="btnTree">看看这棵树</button>
+        </div>
+        <div class="btnrow">
+          <button type="button" class="ghost cursor-interaction" id="btnSave">保存思维树海报</button>
+          <button type="button" class="ghost cursor-interaction" id="btnSwitch">换个剧本</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 图鉴 -->
+    <div class="ov" id="tj">
+      <div class="panel">
+        <div class="endtitle">念头图鉴</div>
+        <div class="stats" id="tjCount"></div>
+        <div id="tjBody"></div>
+        <div class="btnrow"><button type="button" class="primary cursor-interaction" id="tjClose">合上图鉴</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="rotate">↻ 请竖屏游玩</div>
+
+<script>
+(function(){
+'use strict';
+function $(id){return document.getElementById(id);}
+var stage=$('stage'),world=$('world'),cv=$('cv'),ctx=cv.getContext('2d');
+var vig=$('vig'),stEl=$('st'),tbig=$('tbig');
+var toastEl=$('toast'),anxfill=$('anxfill'),anxval=$('anxval');
+var holdBtn=$('holdbtn'),holdHint=$('holdhint');
+var homeOv=$('home'),introOv=$('intro'),endOv=$('end'),tjOv=$('tj');
+var msgrow=$('msgrow'),bubble=$('bubble'),msgtime=$('msgtime');
+var replyrow=$('replyrow'),rbubble=$('rbubble'),replytime=$('replytime');
+var uname=$('uname'),avatar=$('avatar'),soundBtn=$('sound'),reopenBtn=$('reopen');
+var notif=$('notif'),notifIc=$('notifIc'),notifApp=$('notifApp'),notifBody=$('notifBody');
+var fakeov=$('fakeov'),fakeTitle=$('fakeTitle'),fakeBody=$('fakeBody');
+var sendOv=$('sendOv'),sendContact=$('sendContact'),msgInput=$('msgInput');
+var myreply=$('myreply'),myreplyText=$('myreplyText'),withdrawBtn=$('withdraw');
+var replybar=$('replybar'),breathEl=$('breath'),breathTxt=$('breathTxt'),achline=$('achline');
+var fitBtn=$('fitBtn');
+var reduceMotion=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var FF='system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+
+/* ================= 剧本 ================= */
+var SCENES=[
+{ id:"home",ic:"🌙",name:"等他回家",tag:"恋人",
+  contact:"他",status:"在线",typingName:"对方正在输入…",doneStatus:"已回复",
+  msg:"到家了吗？",sentTime:"23:47",endTime:"02:30",totalMin:163,
+  sub:"已发送 23:47 · 对方未回复",doneTitle:"02:30 · 他回复了",
+  tree:[{t:"睡着了？",k:[{t:"睡死过去了",k:[{t:"连梦里都没有我",k:[{t:"原来我在他那这么轻",k:[{t:"那就算了吧",k:[{t:"连「算了」都是假的",k:[]}]}]}]}]},{t:"最近他越睡越晚",k:[{t:"睡前都在忙什么",k:[{t:"忙的事情里有我吗",k:[{t:"多半没有",k:[]}]}]}]},{t:"抱着手机就睡着了",k:[{t:"那他睡前看过屏幕",k:[{t:"看到了，却没回",k:[{t:"是不想回吧",k:[{t:"不想回我，想回谁",k:[]}]}]}]}]},{t:"去应酬了，喝了点酒",k:[{t:"酒后的消息他明天才敢看",k:[{t:"他的夜生活没有我",k:[{t:"从来都没有",k:[]}]}]}]}]},{t:"在忙吧",k:[{t:"在开会，不方便看",k:[{t:"可他开会时也刷过手机",k:[{t:"刷手机也不回我",k:[{t:"刷到我的那条就停住了",k:[]}]}]}]},{t:"临时被派了活",k:[{t:"下班时间还在压任务",k:[{t:"这份工作在吃他",k:[{t:"也顺便吃掉了我",k:[]}]}]}]},{t:"忙到没空看一眼",k:[{t:"我在他的优先级里排最后",k:[{t:"上周也是这样",k:[{t:"一直是这样",k:[{t:"以后也会一直这样",k:[]}]}]}]}]}]},{t:"没看到",k:[{t:"被群消息顶下去了",k:[{t:"群里永远比我热闹",k:[]}]},{t:"手机摔了在修",k:[{t:"这么大的事他也不说",k:[{t:"我的事在他那里都不是事",k:[]}]}]},{t:"给我开了免打扰",k:[{t:"是什么时候开始的？",k:[{t:"上次吵架那次？",k:[{t:"原来早就变了",k:[{t:"变得无声无息",k:[]}]}]}]}]}]},{t:"生气了？",k:[{t:"因为昨天那句话",k:[{t:"他记仇了",k:[{t:"连架都懒得吵了",k:[{t:"冷战比吵架更伤",k:[]}]}]}]},{t:"我上一条太黏人了",k:[{t:"他开始烦我了",k:[{t:"慢慢就会提分手",k:[{t:"这两个字他在心里写过几遍",k:[]}]}]}]},{t:"我说错话了",k:[{t:"那句「随便你」太伤人",k:[{t:"他攒了很久的话",k:[{t:"今晚一起爆发",k:[]}]}]}]}]}],
+  clear:["算了吧，他只是累了", "明天再想也可以", "先照顾好自己", "没回消息 ≠ 不在乎"],
+  ev:{typing:"他打了字，又删了",online:"他的头像亮了",dot:"1 条新通知",
+      dotOk:"只是移动的流量提醒……",moment:"共同好友赞了你的朋友圈"},
+  replies:["刚到家洗完澡～咋了？", "啊…我九点半就睡着了，刚醒，咋啦", "到啦到啦！今天累死了，明天跟你说"],
+  truth:"本局真相：他三个小时前就到家了，倒头就睡。",
+  plot:{start:{at:40,title:"朋友圈提示",body:"他刚刚发了一条朋友圈——一张和朋友的合照，笑得很开心。",opts:[{t:"点开细看",fx:0.12,thought:"合照里没有我",d:1,next:"p1"},{t:"退出去，不看",fx:-0.03,next:"p2"}]},p1:{at:105,title:"群聊消息",body:"共同好友在群里@他：「明天继续？」他隔了几秒，回了一个「好」。",opts:[{t:"盯着那个「好」字看",fx:0.1,thought:"他对别人秒回",d:1,end:"e1"},{t:"退出聊天界面",fx:-0.04,end:"e2"}]},p2:{at:105,title:"别人的热闹",body:"群里突然热闹起来——可话题从头到尾，没有一句和你有关。",opts:[{t:"继续围观到凌晨",fx:0.1,thought:"我像不存在一样",d:1,end:"e3"},{t:"放下手机",fx:-0.04,end:"e4"}]},e1:{truth:"本局真相：合照是部门团建，「好」回的是同事约球。",reply:"「刚看到消息，咋了？」——他完全不知道这三个小时你经历了什么。",care:"你把两个无关的细节，串成了一部失恋大片。编剧功力惊人，但今晚，杀青吧。"},e2:{truth:"本局真相：合照里真没什么，你放大的那块阴影是他外套的褶皱。",reply:"「宝？我到家就睡啦，咋了？」",care:"你看了，但在关键处停住了手。把好奇心按在原地很难，你做到了。"},e3:{truth:"本局真相：热闹是他们的，也是寻常的——没有一句和你有关，也没有一句针对你。",reply:"「？」——他完全不知道发生了什么。",care:"我们总以为被排除在外，其实只是没被卷进去。没被卷进去，是福气。"},e4:{truth:"本局真相：他到家、洗澡、睡觉，一气呵成。",reply:"「早☀ 刚看到」——这是第二天早上七点。",care:"整晚你几乎没有喂那只脑内怪兽。它饿了一点，你就轻了一点。"}}
+},
+{ id:"boss",ic:"💼",name:"请假这件事",tag:"职场",
+  contact:"老板",status:"在线",typingName:"老板正在输入…",doneStatus:"已回复",
+  msg:"老板，我明天想请一天假",sentTime:"21:15",endTime:"23:58",totalMin:163,
+  sub:"已发送 21:15 · 老板未回复",doneTitle:"23:58 · 老板批了",
+  tree:[{t:"没看到？",k:[{t:"在忙季度报表",k:[{t:"明天看到更不会有好脸色",k:[{t:"假条会排在名单后面",k:[]}]}]},{t:"手机放会议桌上了",k:[{t:"整层楼的目光都看得到",k:[{t:"可没人帮他收一下",k:[]}]}]},{t:"消息沉在几十条未读里",k:[{t:"我在未读列表的位置",k:[{t:"排得很靠后",k:[]}]}]},{t:"在开高层会",k:[{t:"高层会的内容更吓人",k:[{t:"名单和高层会有关",k:[{t:"我从名字变成了一个符号",k:[]}]}]}]},{t:"装死，拖着我",k:[{t:"他想让我知难而退",k:[{t:"他在等我先服软",k:[{t:"我从来学不会服软",k:[]}]}]}]}]},{t:"在开会",k:[{t:"讲的正是人员调整",k:[{t:"名单已经在写了",k:[{t:"写得越快，走人越快",k:[{t:"今天写的就有明天的我",k:[]}]}]},{t:"会写到我吗",k:[{t:"上周我的项目刚被砍",k:[{t:"信号从来都很明显",k:[]}]}]}]},{t:"他根本没在忙",k:[{t:"只是不想理我",k:[{t:"连请假都不配被回应",k:[{t:"消息免打扰都开了",k:[]}]}]}]},{t:"正是各部门表态的时候",k:[{t:"他上面的压力比我还大",k:[{t:"他也会拿下面的人垫",k:[{t:"垫背的从来是我们",k:[]}]}]}]},{t:"他在等 HR 的意见",k:[{t:"流程已经走到了我这里",k:[{t:"我已经是流程里的一环",k:[]}]}]}]},{t:"后悔发了",k:[{t:"措辞太随便了",k:[{t:"他觉得我不职业",k:[{t:"绩效上会记一笔",k:[]}]}]},{t:"撤回也来不及了",k:[{t:"说出去的话泼出去的水",k:[{t:"泼出去的水淋的是我",k:[]}]}]},{t:"领导们都能看到撤回记录",k:[{t:"我的慌张留下了证据",k:[{t:"所有人都知道我慌了",k:[]}]}]},{t:"就不该开这个口",k:[{t:"示弱就是原罪",k:[{t:"职场没有心软",k:[{t:"我迟早被规则淘汰",k:[]}]}]}]}]},{t:"被针对了？",k:[{t:"上次 1v1 的沉默",k:[{t:"那时名单可能就有了",k:[{t:"我一直被排在末位",k:[]}]}]},{t:"别人请假都是秒批",k:[{t:"这是区别对待",k:[{t:"我不是自己人",k:[{t:"从来都不是",k:[]}]}]}]},{t:"上次的聚餐没叫我",k:[{t:"聚餐名单和裁员名单是一张",k:[{t:"两个名单都没有我",k:[]}]}]},{t:"部门里只有我一个新人",k:[{t:"新人就是耗材",k:[{t:"用完就丢的那种",k:[{t:"丢的时候连声音都没有",k:[]}]}]}]}]}],
+  clear:["请假是合法权益", "天塌不下来", "大不了再投简历", "工作只是生活的一部分"],
+  ev:{typing:"他打了字，又删了",online:"老板的企业微信亮了",dot:"1 条新通知",
+      dotOk:"是考勤 App 的推送……",moment:"工作群里突然有人@所有人"},
+  replies:["可以，走流程吧。", "行，把工作交接一下。", "嗯，早点回来。"],
+  truth:"本局真相：他在陪孩子写作业，看到消息顺手就批了。",
+  plot:{start:{at:40,title:"工作群",body:"老板在群里发了一句「明天都早点到」，几秒后又撤回了。",opts:[{t:"反复回想那句话",fx:0.1,thought:"他到底想说什么",d:1,next:"p1"},{t:"假装没看见",fx:-0.03,next:"p2"}]},p1:{at:105,title:"新邮件",body:"一封新邮件滑进来，标题是——《关于组织架构调整的通知》。",opts:[{t:"点开看名单",fx:0.12,thought:"名单里有我吗",d:1,end:"e1"},{t:"不看了，反正也睡不着",fx:-0.03,end:"e2"}]},p2:{at:105,title:"撤回之后",body:"那封《组织架构调整》的邮件，也被撤回了。",opts:[{t:"追问道「什么调整？」",fx:0.1,thought:"装平静的人最慌",d:1,end:"e3"},{t:"就当没发生过",fx:-0.03,end:"e4"}]},e1:{truth:"本局真相：撤回的是「明天我带奶茶」——发错群了；名单是别的部门裁员。",reply:"「假条批了，好好休息。」",care:"最坏的画面全是脑补的。真实世界今天甚至没空搭理你。"},e2:{truth:"本局真相：那封邮件和你毫无关系，附件是别的部门的团建照片。",reply:"「批了。周五交个周报就行。」",care:"你扛住了没有点开的诱惑。不知道结果，有时候比坏结果好受——你已经在练这个了。"},e3:{truth:"本局真相：邮件抄送错了，全公司都收到了，不止你一个。",reply:"「？你也收到那封邮件了吧哈哈」",care:"原来大家都在同一艘船上慌张。你不是被针对的主角，只是个普通收件人。"},e4:{truth:"本局真相：第二天你到公司，什么都没发生，谁也没提昨天。",reply:"「早。假条记得补流程哈。」",care:"两封邮件你都放下了。天没有塌，反而亮了。这份钝感力，值钱。"}}
+},
+{ id:"moments",ic:"🌤",name:"第九个赞",tag:"朋友圈",
+  contact:"朋友圈",status:"所有人可见",typingName:"有人正在看…",doneStatus:"收到赞了",
+  msg:"[图片] 今天的天空",sentTime:"12:04",endTime:"14:47",totalMin:163,
+  sub:"已发布 12:04 · 还没有人点赞",doneTitle:"14:47 · 第 9 个赞来了",
+  tree:[{t:"根本没人刷到",k:[{t:"算法没推给任何人",k:[{t:"我发的东西不值得被推",k:[{t:"连算法都在否定我",k:[{t:"它只是如实反映了我",k:[{t:"数据从不说谎",k:[]}]}]}]}]},{t:"微信是不是出问题了",k:[{t:"连系统都在陪我演",k:[{t:"一场没有观众的开屏",k:[]}]}]},{t:"发的时间不对",k:[{t:"黄金时段都是别人的",k:[{t:"我总在错的时间出现",k:[]}]}]},{t:"停更是太久的人不值得推送",k:[{t:"我停更，是因为没人看",k:[{t:"没人看，所以没人看",k:[{t:"死循环",k:[]}]}]}]}]},{t:"看到了没赞",k:[{t:"觉得天空太平淡",k:[{t:"我拍的东西也一样平淡",k:[{t:"我这个人也是如此",k:[]}]}]},{t:"觉得我在无病呻吟",k:[{t:"他们会在背后笑",k:[{t:"笑我不配发朋友圈",k:[]}]}]},{t:"很多人根本没开朋友圈",k:[{t:"大家都在逃离这里",k:[{t:"也在逃离彼此",k:[]}]}]},{t:"都在等别人先赞",k:[{t:"谁都不想当第一个",k:[{t:"就像谁都不想先联系我",k:[]}]}]}]},{t:"早就屏蔽我了",k:[{t:"上次那条评论惹人烦了",k:[{t:"我连玩笑都开不好",k:[{t:"干脆以后别发了",k:[{t:"反正也没人发现我停更",k:[]}]}]}]},{t:"热闹的九宫格里没有我",k:[{t:"从来都没有",k:[{t:"我也不该出现在这里",k:[]}]}]},{t:"分组可见把我排除在外",k:[{t:"每一条都与我无关",k:[{t:"我在所有分组之外",k:[]}]}]},{t:"他换了微信号，忘了加我",k:[{t:"连他的新生活都没有我",k:[{t:"他重开的人生把我删了",k:[]}]}]}]}],
+  clear:["算了吧，天空拍给自己看", "点赞本来就很随机", "记录是为了自己", "不必活在红点里"],
+  ev:{typing:"有人看了很久，什么也没留",online:"一个头像悄悄点开了你的主页",dot:"1 条新通知",
+      dotOk:"是抖音的周报推送……",moment:"刷到别人发的九宫格聚餐"},
+  replies:["「拍得不错。」——三年没联系的高中同学", "第 9 个赞，来自妈妈。", "有人评论：「哪拍的？」"],
+  truth:"本局真相：那张天空，你自己拍完也觉得一般，但你还是想给它找一个观众。",
+  plot:{start:{at:40,title:"主页访客",body:"有个头像在你的主页停了很久。是你最在意的那一个。",opts:[{t:"去看看他的主页",fx:0.12,thought:"他在看谁的动态",d:1,next:"p1"},{t:"锁屏，不看了",fx:-0.03,next:"p2"}]},p1:{at:105,title:"失联来信",body:"三年没联系的高中同学突然发来私信：「在吗？」",opts:[{t:"回一个「在」",fx:0.08,thought:"原来只有失联的人会找我",d:1,end:"e1"},{t:"不回",fx:-0.02,end:"e2"}]},p2:{at:105,title:"深夜的赞",body:"深夜，那个你在意的头像，给你的天空点了个赞。",opts:[{t:"盯着那个赞看",fx:0.1,thought:"一个赞能说明什么",d:1,end:"e3"},{t:"睡吧",fx:-0.02,end:"e4"}]},e1:{truth:"本局真相：他在你主页停留，只是想找三年前你帮他拍的那张合照。",reply:"「拍得不错」下面，他又补了一句：「还是你拍得好」。",care:"别人的目光没有那么多剧情。有时候，停留就只是停留。"},e2:{truth:"本局真相：那个头像停留了两秒——点错了，又划走了。",reply:"第 10 个赞，来自你的妈妈。",care:"世界对你没有恶意，它只是随手路过了你。真正的温柔，是妈妈第 10 个赞。"},e3:{truth:"本局真相：那个赞是手滑。他三分钟后取消了。",reply:"（通知变成了：「对方取消了赞」。）",care:"你看，连一个赞都承载不了那么多意义。别替别人的手指写小说。"},e4:{truth:"本局真相：第二天中午，那条天空下已经有 9 个赞了。",reply:"「拍得不错。」——三年没联系的高中同学。",care:"你睡了，赞自己来了。你等的东西，常常在你放下之后抵达。"}}
+},
+{ id:"group",ic:"💬",name:"冷场的梗",tag:"群聊",
+  contact:"摸鱼俱乐部（132）",status:"132 名成员",typingName:"有人正在输入…",doneStatus:"有人回了",
+  msg:"这周终于熬到周五了！",sentTime:"21:03",endTime:"23:41",totalMin:158,
+  sub:"已发送 21:03 · 群里无人回应",doneTitle:"23:41 · 有人回了",
+  tree:[{t:"被刷上去了",k:[{t:"群太活跃，怪不了谁",k:[{t:"热闹从来不是我的",k:[{t:"他们有个更热闹的小群",k:[{t:"凌晨一点还在聊",k:[{t:"聊得最欢的时候没有我",k:[]}]}]}]},{t:"他们现实里也天天聚",k:[{t:"聚餐照片里没有我",k:[{t:"线上线下都没有我",k:[]}]}]}]},{t:"消息免打扰忘关了",k:[{t:"忘了关，说明我根本没在意过这个群",k:[{t:"这个群对我也不重要",k:[{t:"互相不重要",k:[]}]}]}]},{t:"他们装没看见",k:[{t:"对我连敷衍都省了",k:[{t:"我在群里等于空气",k:[]}]}]}]},{t:"不好笑",k:[{t:"我本来就不好笑",k:[{t:"我的幽默只感动自己",k:[{t:"就像我这个人一样",k:[]}]}]},{t:"他们的笑点我永远猜不中",k:[{t:"我们在不同的频道",k:[{t:"不同的世界",k:[]}]}]},{t:"有人回了个句号",k:[{t:"连句号都是敷衍",k:[]}]}]},{t:"上次说错话被记住了",k:[{t:"接错话被晾过一次",k:[{t:"他们有个没有我的小群",k:[{t:"重要的事都在那边说",k:[]}]}]},{t:"那之后我发言就变少了",k:[{t:"越少越怕说错",k:[{t:"越怕越错",k:[]}]}]},{t:"我在这个群里本来多余",k:[{t:"退群也没人发觉",k:[{t:"消失是最体面的退场",k:[]}]}]}]}],
+  clear:["有些群存在的意义就是让你潜水", "热闹不需要我参与", "没接住的话就让它落地", "群不是我价值的证明"],
+  ev:{typing:"有人打了字，又删了",online:"群里有 3 个人正在看消息",dot:"1 条新通知",
+      dotOk:"是群公告的更新提醒……",moment:"隔壁群突然斗起图来"},
+  replies:["哈哈哈（23:41，仅此一条）", "@你 这段子我昨天看过", "有人默默发了个红包，话题被带走了"],
+  truth:"本局真相：那晚 132 人都看到了，只是大家都在加班。",
+  plot:{start:{at:40,title:"②群暴击",body:"隔壁「摸鱼俱乐部②群」有人发了个一模一样的段子，收获了 23 个「哈哈哈」。",opts:[{t:"截图发到大群对质",fx:0.1,thought:"凭什么",d:1,next:"p1"},{t:"算了，没意思",fx:-0.02,next:"p2"}]},p1:{at:105,title:"群公告",body:"群主发了一条公告：「长期潜水的同学，可以考虑退群了。」",opts:[{t:"看看@的是谁",fx:0.12,thought:"是在说我吗",d:1,end:"e1"},{t:"当作没看见",fx:-0.03,end:"e2"}]},p2:{at:105,title:"夜里的招呼",body:"深夜，群里有人@你：「睡了没？就问你一句。」",opts:[{t:"盯着这句话猜是谁",fx:0.1,thought:"找我什么事",d:1,end:"e3"},{t:"不回，装睡",fx:-0.02,end:"e4"}]},e1:{truth:"本局真相：你把截图发过去，对面回了句「哦，那没事了」。风波比你想的小得多。",reply:"群里有人发了新表情包，你的截图慢慢沉了下去。",care:"你为自己说了话。不管结果如何，「说出来」本身就是胜利。"},e2:{truth:"本局真相：你算了。第二天发现，②群那人也自己删了那条段子。",reply:"「早啊」——有人在群里跟你打了个招呼。",care:"有些委屈放一放，自己就化了。你的「算了」不是怂，是筛选：筛选值得消耗的人和事。"},e3:{truth:"本局真相：公告@的是三个月没发言的另一个人，不是你。",reply:"「@你 别多想，例行公告」（群主私聊你）",care:"你看了，也慌了，然后发现矛头根本不在你这儿。焦虑最爱冒领罪名，下次让它先出示证据。"},e4:{truth:"本局真相：你当作没看见。第二天群里照常冷场，谁也没退群。",reply:"（群里安安静静，一切照旧。）",care:"潜水不丢人。有些群存在的意义，就是让你知道：热闹不需要你参与，你依然安全。"}}
+},
+{ id:"crush",ic:"💫",name:"在吗",tag:"暧昧",
+  contact:"她",status:"在线",typingName:"对方正在输入…",doneStatus:"已回复",
+  msg:"在吗？",sentTime:"22:17",endTime:"01:00",totalMin:163,
+  sub:"已发送 22:17 · 对方未回复",doneTitle:"01:00 · 她回了",
+  tree:[{t:"在忙",k:[{t:"忙着和别人聊",k:[{t:"我的对话框排在最后",k:[{t:"排队的人永远轮不上",k:[]}]},{t:"排前面的那个人是谁",k:[{t:"我不敢问",k:[{t:"不敢问就是答案",k:[]}]}]}]},{t:"看到了先晾着我",k:[{t:"晾着我成了她的习惯",k:[{t:"她拿捏我拿捏惯了",k:[{t:"我还在等她拿捏",k:[{t:"我享受被拿捏",k:[]}]}]}]}]},{t:"她最近在赶一个项目",k:[{t:"项目比我重要",k:[{t:"所有事都比我重要",k:[]}]}]},{t:"正在和谁视频吧",k:[{t:"对着别人笑的样子我见过",k:[{t:"只是从来没对我笑过",k:[]}]}]}]},{t:"睡了",k:[{t:"那么早睡，真平静",k:[{t:"她的夜晚不需要我在场",k:[{t:"我连她的梦都进不去",k:[{t:"她的平静从来与我无关",k:[]}]}]}]},{t:"装睡躲我",k:[{t:"那条「在吗」好可笑",k:[{t:"我居然真的发了",k:[]}]}]},{t:"好梦",k:[{t:"梦里有别人",k:[]}]}]},{t:"她没看到",k:[{t:"一百多条未读里压着",k:[{t:"翻到我也要很久",k:[{t:"翻到了也不想回",k:[]}]}]}]},{t:"她烦我了",k:[{t:"我太主动了",k:[{t:"主动的下场就是被躲",k:[{t:"下次别再先开口",k:[{t:"等她先开口",k:[{t:"她会开口吗",k:[{t:"沉默就是回答",k:[]}]}]}]}]}]},{t:"上周约会说错话了",k:[{t:"她一直记得",k:[{t:"减分都是累积的",k:[]}]}]},{t:"我送的花她转送别人了",k:[{t:"我的心意被转手",k:[{t:"和花一起被转手的还有我",k:[]}]}]},{t:"第二条「在吗」我没敢发",k:[{t:"打了又删的那条更可笑",k:[{t:"可笑的是我这个人",k:[]}]}]}]}],
+  clear:["「在吗」本来就没营养", "想聊就直接聊内容", "主动不丢人，内耗才丢人", "先把自己的今晚过好"],
+  ev:{typing:"她打了字，又删了",online:"她的头像亮了",dot:"1 条新通知",
+      dotOk:"是购物 App 的降价提醒……",moment:"她给别人点了个赞"},
+  replies:["在的，咋啦？", "刚洗漱完！怎么啦", "？"],
+  truth:"本局真相：她在追一部剧，刚看到消息，正处大结局。",
+  plot:{start:{at:40,title:"合照",body:"共同好友发了张合照：她和某个男生并肩站着，笑得很近。",opts:[{t:"放大了看",fx:0.12,thought:"那个人是谁",d:1,next:"p1"},{t:"划走，不看了",fx:-0.02,next:"p2"}]},p1:{at:105,title:"她分享的歌",body:"她分享了一首歌——正好是那首你们都听过的《体面》。",opts:[{t:"单曲循环听一遍",fx:0.1,thought:"这歌是唱给谁的",d:1,end:"e1"},{t:"不听",fx:-0.02,end:"e2"}]},p2:{at:105,title:"头像暗了",body:"23:50，她的头像暗了——下线了，没有回你的「在吗」。",opts:[{t:"盯着灰掉的头像",fx:0.1,thought:"她宁可下线也不回我",d:1,end:"e3"},{t:"把手机扣在桌上",fx:-0.02,end:"e4"}]},e1:{truth:"本局真相：那个男生是她表哥，合照是家庭聚餐。",reply:"「在的！刚才和大姨一家吃饭呢，我表哥非要发合照」",care:"你看，放大的细节差点杀死一段关系。下次手痒的时候，先问问当事人。"},e2:{truth:"本局真相：合照是团建，男生是同事，站位是随机的。",reply:"「在呀～刚忙完」",care:"你划走了那张照片。有些猜疑在按下不看的瞬间就输了——赢的是你。"},e3:{truth:"本局真相：那首歌是系统随机推荐，她的分享列表里有二十首歌。",reply:"「这歌？系统推的，咋了？」",care:"她不知道那首歌对你们的意义。有些信号只存在于你的电台里，别替别人的歌填词。"},e4:{truth:"本局真相：她根本没在追什么剧，那条分享是转发抽奖。",reply:"「咋啦？看到你消息啦」",care:"你没听那首歌，也就没掉进那三分钟的心如刀绞。有时候「不听」就是最好的止损。"}}
+}
+];
+
+var BAIT=['是一条会员促销短信。','是中国移动的流量提醒。','是外卖平台的红包通知。'];
+var CARE=['念起即觉，觉之即无。','你没有义务替他的沉默写剧本。','先睡觉，天大的事明天再说。','你的感受，比那条消息重要。','内耗是认真的副作用，不是你的错。','此刻，把自己轻轻抱一下。','树会落叶，你也会放下。'];
+var MOODL={
+  deep:{t:'写给深陷的你',c:'今晚你替他写完了三个小时的剧本，句句都是心事。可你看，真实的结局只是——他睡着了。那些没发生的坏结局，就让它们留在树上吧。你很认真地在爱，明天，也认真吃顿饭。'},
+  mid:{t:'写给挣扎的你',c:'今晚你在树上来回爬了很多次：一头钻进牛角尖，又亲手把自己捞出来。别小看每一次「划掉」——那就是练习。内耗不是你的敌人，它只是你太在乎的证明。慢慢来。'},
+  free:{t:'写给放过的你',c:'今晚你几乎每次都选择了放过自己。不是你不在乎，是你终于学会了把自己也放进「在乎」里。收好这份平静——下次内耗来敲门，记得你做得到。'}
+};
+var RATES=[
+  {min:0,name:'心宽体胖',quip:'你几乎没内耗——这局是你陪自己好好度过的。'},
+  {min:6,name:'正常人类',quip:'一个普通的、有点想太多的时段。'},
+  {min:15,name:'金牌编剧',quip:'三个小时不到，你拍完了一整季苦情剧。'},
+  {min:27,name:'脑内奥斯卡终身成就奖',quip:'现实只是打了个盹，你已经演完了生离死别。'}
+];
+var GROUPS=[
+  {key:'gA',label:'一闪而过',tiers:[0,1]},
+  {key:'gB',label:'越陷越深',tiers:[2,3]},
+  {key:'gC',label:'深夜大戏',tiers:[4]},
+  {key:'gD',label:'放过自己',tiers:['clear']}
+];
+
+/* ================= 存档 ================= */
+var KEY='nhx_save_v1';
+var SAVE={sound:false,seenIntro:false,seenCamHint:false,col:{},custom:[],stats:{games:0,thoughts:0,clears:0,oscars:0,ach:{}}};
+function loadSave(){
+  try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object'){
+    SAVE.sound=!!s.sound;SAVE.seenIntro=!!s.seenIntro;SAVE.seenCamHint=!!s.seenCamHint;SAVE.col=s.col||{};
+    SAVE.stats=Object.assign({games:0,thoughts:0,clears:0,oscars:0,ach:{}},s.stats||{});
+    SAVE.custom=Array.isArray(s.custom)?s.custom.slice(0,20):[];}}catch(e){}
+  if(!SAVE.stats.ach)SAVE.stats.ach={};
+}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(SAVE));}catch(e){}}
+function collect(text,group){if(!SAVE.col[text]){SAVE.col[text]=group;SAVE.stats.thoughts++;}}
+loadSave();
+
+/* ================= 音效 ================= */
+var actx=null,audioReady=false,beatAt=0;
+function ensureAudio(){
+  if(actx)return;
+  try{actx=new (window.AudioContext||window.webkitAudioContext)();audioReady=true;}catch(e){}
+}
+function tone(f0,f1,dur,gain,type,when){
+  if(!SAVE.sound||!actx)return;
+  try{
+    var t=(when!==undefined?when:actx.currentTime);
+    var o=actx.createOscillator(),g=actx.createGain();
+    o.type=type||'sine';
+    o.frequency.setValueAtTime(f0,t);
+    if(f1)o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(gain,t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g);g.connect(actx.destination);
+    o.start(t);o.stop(t+dur+0.05);
+  }catch(e){}
+}
+function thump(t,f){tone(f,Math.max(28,f*0.5),0.26,0.25,'sine',t);}
+function heartbeat(){
+  if(!SAVE.sound||!actx||ended)return;
+  var t=actx.currentTime,iv=1.15-anxiety*0.6;
+  if(t-beatAt<iv)return;
+  beatAt=t;thump(t,64);thump(t+0.16,52);
+}
+function vib(p){try{if(navigator.vibrate)navigator.vibrate(p);}catch(e){}}
+document.addEventListener('pointerdown',function once(){ensureAudio();if(actx&&actx.state==='suspended')actx.resume();},{once:true});
+
+/* ================= 状态 ================= */
+var branches,used,branchCount,clearCount,peak,anxiety,waitMin,holding,holdT,
+    spawnClock,clearClock,eventClock,firstEvent,pending,buzzWin,capWarned,ended,running,fast;
+var notifSeen=0,notifTapped=0,tapThink=0,struck=0,emptyTaps=0,bubbleTaps=0,
+    breathT=0,breathNext=4,lastPhase=-1,myReplyText=null;
+var notifData=null,notifTimer=0;
+var fakeType=null,fakeStep=0,pendingPenalty=0;
+var pDown=null,pTimer=0,endRateObj=null;
+var cam={x:0,y:0,s:1},camT={x:0,y:0,s:1},autoFit=true;
+var pointers=new Map(),pinch=null,pan=null,lastTapT=0,lastUserCam=0;
+var plotIdx=0,typeDone=false,plotCur=null,plotFired=false,endKey=null,moodPts=0;
+var RUN={};
+var colYs={};
+var rootQueue=[],rootClock=0;
+var ECHO=['又在想：','还是想到：','翻来覆去还是：','越想越真：','一遍遍确认：'];
+var echoOn=false,echoClock=0;
+var EPILOGUES={
+  '哈哈，没事啦':'你回得云淡风轻，然后用后半夜复盘这句话。',
+  '早点睡':'你把温柔给了他，把失眠留给了自己。',
+  '我有点想你':'你说完就后悔了。但你说你不后悔。'
+};
+var SC=SCENES[0];
+var anchor={x:0,y:0};
+var W=0,H=0,last=0,raf=0,runToken=0,toastTimer=0;
+var TOTAL=163;
+
+function pad(n){return (n<10?'0':'')+n;}
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function pickText(pool){
+  var min=1e9,tops=[];
+  for(var i=0;i<pool.length;i++){
+    var n=used[pool[i]]||0;
+    if(n<min){min=n;tops=[pool[i]];}
+    else if(n===min)tops.push(pool[i]);
+  }
+  var t=tops[Math.floor(Math.random()*tops.length)];
+  used[t]=(used[t]||0)+1;
+  return t;
+}
+function easeOut(t){return t*(2-t);}
+function qp(b,t){var u=1-t;return{x:u*u*b.x0+2*u*t*b.cx+t*t*b.x1,y:u*u*b.y0+2*u*t*b.cy+t*t*b.y1};}
+function dirOf(b){return Math.atan2(b.y1-b.y0,b.x1-b.x0);}
+var TIERC=['#f2f5ff','#dfe6ff','#ffd9a8','#ff9aa5','#ff4d5e'];
+function colorOf(b){return b.gold?'#ffd27a':TIERC[Math.min(4,b.tier)];}
+function fontOf(b,sz){var d=Math.min(4,b.tier);return (d>=3?600:500)+' '+(sz||[12,12.5,13,14,15][d])+'px '+FF;}
+
+function computeAnchor(){
+  var s=stage.getBoundingClientRect(),m=bubble.getBoundingClientRect();
+  if(!s.width||!m.width)return;
+  anchor.x=m.right-s.left+18;
+  anchor.y=m.top-s.top+m.height/2;
+}
+function resize(){
+  var r=stage.getBoundingClientRect(),ow=W,oh=H;
+  W=r.width;H=r.height;
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(ow&&oh&&(Math.abs(W/ow-1)>0.001||Math.abs(H/oh-1)>0.001)){
+    var sx=W/ow,sy=H/oh;
+    branches.forEach(function(b){b.x0*=sx;b.cx*=sx;b.x1*=sx;b.y0*=sy;b.cy*=sy;b.y1*=sy;});
+    anchor.x*=sx;anchor.y*=sy;
+  }
+  computeAnchor();
+}
+window.addEventListener('resize',resize);
+
+function resetState(){
+  branches=[];used={};branchCount=0;clearCount=0;peak=0;anxiety=0;waitMin=0;
+  holding=false;holdT=0;spawnClock=2.2;clearClock=5;eventClock=6;firstEvent=true;
+  pending=null;buzzWin=0;capWarned=false;ended=false;running=false;fast=fast||false;
+  notifSeen=0;notifTapped=0;tapThink=0;struck=0;emptyTaps=0;bubbleTaps=0;
+  breathT=0;breathNext=4;lastPhase=-1;myReplyText=null;endRateObj=null;
+  clearTimeout(notifTimer);notif.classList.remove('show');notifData=null;
+  fakeov.classList.remove('on');replybar.classList.remove('on');
+  myreply.hidden=true;withdrawBtn.hidden=true;
+  breathEl.classList.remove('on');achline.hidden=true;
+  plotIdx=0;typeDone=false;plotCur=null;plotFired=false;endKey=null;moodPts=0;
+  plotov.classList.remove('on');typeov.classList.remove('on');
+  pDown=null;clearTimeout(pTimer);
+  cam={x:0,y:0,s:1};camT={x:0,y:0,s:1};autoFit=true;
+  pointers.clear();pinch=null;pan=null;lastTapT=0;lastUserCam=0;
+  fitBtn.hidden=true;
+  colYs={};
+  echoOn=false;echoClock=0;
+  rootQueue=[1,2];rootClock=2.4;
+  TOTAL=SC.totalMin;
+  uname.textContent=SC.contact;avatar.textContent=SC.contact.charAt(0);
+  $('tsub').textContent=SC.sub;$('msgtime').textContent=SC.sentTime;
+  bubble.textContent=SC.msg;$('replytime').textContent=SC.endTime;
+  replyrow.hidden=true;reopenBtn.hidden=true;
+  holdBtn.disabled=false;holdBtn.textContent='按住 · 放下手机';
+  holdBtn.classList.remove('holding');holdBtn.setAttribute('aria-pressed','false');
+  holdHint.textContent='盯着屏幕，念头会疯长';
+  world.classList.remove('shake');
+  setStatus('online');
+  computeAnchor();
+  updateHUD();
+}
+function setStatus(m){
+  if(m==='typing'){stEl.innerHTML='<span class="dot off"></span>'+SC.typingName;stEl.classList.add('typing');}
+  else if(m==='done'){stEl.innerHTML='<span class="dot"></span>'+SC.doneStatus;stEl.classList.remove('typing');}
+  else{stEl.innerHTML='<span class="dot"></span>'+SC.status;stEl.classList.remove('typing');}
+}
+function toast(t,kind,dur){
+  toastEl.textContent=t;
+  toastEl.className='show'+(kind?' '+kind:'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){toastEl.className='';},dur||2600);
+}
+function bump(d){anxiety=Math.min(1,Math.max(0,anxiety+d));}
+
+/* ================= 树 ================= */
+function colX(i){return anchor.x+(RUN.gap||112)*i;}
+function placeY(ci,yTry){
+  var col=colYs[ci]||(colYs[ci]=[]);
+  yTry=Math.max(42,Math.min(H-70,yTry));
+  for(var k=0;k<9;k++){
+    var ok=true;
+    for(var j=0;j<col.length;j++){if(Math.abs(col[j]-yTry)<34){ok=false;break;}}
+    if(ok)break;
+    yTry+=(Math.random()*2-1)*46;
+    yTry=Math.max(42,Math.min(H-70,yTry));
+  }
+  col.push(yTry);
+  return yTry;
+}
+function buildGraph(){
+  var out=[],roots=[];
+  function walk(arr,d,pi){
+    arr.forEach(function(n){
+      var idx=out.length;
+      out.push({t:n.t,d:d,k:0,ch:[],pi:pi,sp:0,b:null,spawned:false});
+      if(pi<0)roots.push(out[idx]);
+      else out[pi].ch.push(idx);
+      if(n.k&&d<5)walk(n.k,d+1,idx,out,roots);
+    });
+  }
+  walk(SC.tree,0,-1,out,roots);
+  SC._list=out;
+  SC._roots=roots;
+}
+function pickParent(){
+  var c=[];
+  for(var i=0;i<SC._list.length;i++){
+    var gn=SC._list[i];
+    if(gn.b&&gn.sp<gn.ch.length)c.push(gn);
+  }
+  if(!c.length)return null;
+  var byK=[[],[],[]];
+  for(var j=0;j<c.length;j++){byK[Math.min(2,SC._list[c[j]].sp)].push(c[j]);}
+  var pool=byK[0].length?byK[0]:(byK[1].length?byK[1]:byK[2]);
+  return pool[Math.floor(Math.random()*pool.length)].b;
+}
+function spawnEcho(b){
+  var d=Math.min(11,b.depth+1);
+  var x0=b.x1,y0=b.y1;
+  var x1=colX(d+1);
+  var y1=placeY(d+1,y0+(Math.random()*2-1)*(26+d*18));
+  var ang=Math.atan2(y1-y0,x1-x0);
+  var llen=Math.max(30,Math.hypot(x1-x0,y1-y0));
+  var bend=Math.random()*RUN.bend*2-RUN.bend;
+  var cx=(x0+x1)/2+Math.cos(ang+Math.PI/2)*bend*llen;
+  var cy=(y0+y1)/2+Math.sin(ang+Math.PI/2)*bend*llen;
+  var text=pick(ECHO)+b.text;
+  collect(text,'4');
+  var nb={x0:x0,y0:y0,cx:cx,cy:cy,x1:x1,y1:y1,depth:Math.min(11,d+1),tier:4,text:text,prog:0,gold:false,kids:0,childRefs:null,gi:-1};
+  b.childRefs=b.childRefs||[];b.childRefs.push(nb);
+  b.kids++;
+  branches.push(nb);
+  branchCount++;
+  tone(360,220,0.12,0.05,'sine');
+}
+function spawn(parent,gold){
+  if(branches.length>=60){
+    if(!capWarned){capWarned=true;toast('念头已经多到画不下了','warn');}
+    return;
+  }
+  var x0,y0,x1,y1,depth,text,gi;
+  if(!parent){
+    var rn=null;
+    for(var i=0;i<SC._roots.length;i++){if(!SC._roots[i].spawned){rn=SC._roots[i];break;}}
+    if(!rn)return;
+    rn.spawned=true;
+    gi=SC._list.indexOf(rn);
+    depth=rn.d;
+    text=rn.t;
+    x0=anchor.x;y0=anchor.y;
+    x1=colX(depth+1);
+    y1=placeY(depth+1,y0+(Math.random()*76-38));
+  }else{
+    parent.kids=(parent.kids||0)+1;
+    x0=parent.x1;y0=parent.y1;
+    var gn=SC._list[parent.gi];
+    if(gn.sp>=gn.ch.length)return;
+    var ci=gn.ch[gn.sp];gn.sp++;
+    var cn=SC._list[ci];
+    gi=ci;
+    depth=cn.d;
+    text=cn.t;
+    x1=colX(depth+1);
+    var sp=42+depth*24;
+    y1=placeY(depth+1,y0+(Math.random()*2-1)*sp);
+  }
+  var ang=Math.atan2(y1-y0,x1-x0);
+  var llen=Math.max(30,Math.hypot(x1-x0,y1-y0));
+  var bend=Math.random()*RUN.bend*2-RUN.bend;
+  var cx=(x0+x1)/2+Math.cos(ang+Math.PI/2)*bend*llen;
+  var cy=(y0+y1)/2+Math.sin(ang+Math.PI/2)*bend*llen;
+  var tier=Math.min(4,depth);
+  if(gold)text=pickText(SC.clear);
+  collect(text,gold?'clear':String(tier));
+  var nb={x0:x0,y0:y0,cx:cx,cy:cy,x1:x1,y1:y1,depth:depth,tier:tier,text:text,prog:0,gold:!!gold,kids:0,childRefs:null,gi:gi};
+  if(parent){parent.childRefs=parent.childRefs||[];parent.childRefs.push(nb);}
+  branches.push(nb);
+  branchCount++;
+  if(gold){clearCount++;SAVE.stats.clears++;tone(660,990,0.16,0.08,'sine');}
+  else tone(420+Math.random()*260,null,0.08,0.045,'triangle');
+}
+function pickParent(){
+  var CAP=[99,3,8,14,20,26,32,38,44,49,54,58];
+  var c=branches.filter(function(b){return (b.kids||0)<RUN.maxKids&&b.depth<11;});
+  c=c.filter(function(b){
+    var cnt=0;
+    for(var i=0;i<branches.length;i++){if(branches[i].depth===b.depth+1)cnt++;}
+    return cnt<CAP[Math.min(CAP.length-1,b.depth+1)];
+  });
+  if(!c.length)c=branches.filter(function(b){return (b.kids||0)<RUN.maxKids&&b.depth<6;});
+  if(!c.length)c=branches;
+  var leaves=c.filter(function(b){return (b.kids||0)===0;});
+  var pool=leaves.length?leaves:c;
+  var i=Math.floor(Math.pow(Math.random(),0.6)*pool.length);
+  return pool[Math.min(pool.length-1,i)];
+}
+function deepest(){
+  var m=null;
+  for(var i=0;i<branches.length;i++){if(!m||branches[i].depth>m.depth)m=branches[i];}
+  return m;
+}
+
+/* ================= 事件 ================= */
+function startTyping(){pending={type:'typing',t:2.6+Math.random()*1.4};setStatus('typing');}
+function fireEvent(){
+  eventClock=9+Math.random()*10;
+  if(holding){buzzWin=4;toast('📱 手机震了一下……','warn',3600);vib([60,80,60]);return;}
+  if(firstEvent){firstEvent=false;startTyping();return;}
+  var r=Math.random();
+  if(r<0.25)startTyping();
+  else if(r<0.4){toast(SC.ev.online,'warn');bump(0.06);}
+  else if(r<0.55){toast('对方撤回了一条消息','warn');bump(0.09);}
+  else if(r<0.78)promoNotif();
+  else momentsNotif();
+}
+function promoNotif(){
+  var apps=[
+    ['拼多多','P','#e02e24','你的好友帮你砍价成功，现金红包待领取！'],
+    ['中国移动','移','#0085d0','您本月流量已用 80%，点击领取加油包'],
+    ['美团外卖','美','#ffc300','您常点的那家奶茶店上新了，立减 8 元']
+  ];
+  var a=pick(apps);
+  showNotif(a[0],a[1],a[2],a[3],function(){openFake(a[0],'promo');});
+}
+function momentsNotif(){
+  showNotif('微信','微','#07c160',SC.contact+' 刚刚发布了一条朋友圈',function(){openFake(SC.contact,'moments');});
+}
+function showNotif(app,icon,color,body,onClick){
+  if(ended)return;
+  notifData={tapped:false,onClick:onClick};
+  notifIc.textContent=icon;notifIc.style.background=color;
+  notifApp.textContent=app;notifBody.textContent=body;
+  notif.classList.add('show');
+  notifSeen++;
+  clearTimeout(notifTimer);
+  notifTimer=setTimeout(function(){
+    notif.classList.remove('show');
+    if(notifData&&!notifData.tapped&&!ended){
+      bump(-0.02);toast('你没有点开。做得好。','good');
+    }
+    notifData=null;
+  },3400);
+}
+notif.addEventListener('click',function(){
+  if(!notifData||ended)return;
+  notifData.tapped=true;notifTapped++;
+  clearTimeout(notifTimer);notif.classList.remove('show');
+  var fn=notifData.onClick;notifData=null;
+  fn();
+});
+function openFake(title,type){
+  fakeTitle.textContent=title;fakeType=type;fakeStep=0;
+  pendingPenalty=type==='promo'?0.08:0.15;
+  if(type==='promo'){
+    fakeBody.innerHTML='<p id="fp1">🎁 你获得一个现金红包，已存入账户</p><p class="gold" id="fp2">¥ 0.01</p>'+
+      '<button type="button" class="bigbtn" id="fakeBtn">再领一次</button><p class="mmeta" id="fakeMeta">满 100 元可提现</p>';
+  }else{
+    fakeBody.innerHTML='<p><b>'+title+'</b></p><p>夜跑五公里，卸下一天的疲惫 🌙</p>'+
+      '<div class="moments-img"></div><p class="mmeta">3 分钟前 · '+pick(['共同好友等 12 人觉得很赞','林姐、阿凯和共同好友觉得很赞'])+'</p>'+
+      '<p class="mpunch">他没有回你的消息。但他发了朋友圈。</p>';
+  }
+  fakeov.classList.add('on');
+  tone(600,900,0.12,0.08,'sine');vib(20);
+  if(type==='promo'){
+    var fb=document.getElementById('fakeBtn');
+    fb.addEventListener('click',function(){
+      fakeStep++;bump(0.02);tone(300,180,0.12,0.1,'square');
+      if(fakeStep===1){document.getElementById('fp1').textContent='🎁 又领到一个红包！';document.getElementById('fp2').textContent='¥ 0.02';document.getElementById('fakeMeta').textContent='还差 ¥ 99.98 可提现';}
+      else if(fakeStep===2){document.getElementById('fp1').textContent='📢 红包活动太过火爆…';document.getElementById('fakeMeta').textContent='今日提现额度已用完';fb.textContent='邀请好友再领';}
+      else{document.getElementById('fakeMeta').textContent='好友「小美」拒绝了你的人格';fb.textContent='再邀请一位好友';}
+    });
+  }
+}
+$('fakeClose').addEventListener('click',function(){
+  fakeov.classList.remove('on');
+  bump(pendingPenalty);
+  toast(fakeType==='moments'?'心更乱了……':'手贱了……','warn');
+  if(fakeType==='moments'&&branches.length)spawn(deepest(),false);
+  persist();
+});
+
+/* ================= HUD / 绘制 ================= */
+function updateHUD(){
+  var h=Math.floor(waitMin/60),m=Math.floor(waitMin%60);
+  tbig.textContent=h+':'+pad(m);
+  var t=anxiety;
+  tbig.style.color='rgb('+Math.round(233+22*t)+','+Math.round(237-142*t)+','+Math.round(245-140*t)+')';
+  tbig.style.textShadow='0 0 '+(18+26*t)+'px rgba(255,77,94,'+(0.25+0.45*t).toFixed(2)+')';
+  anxfill.style.width=(anxiety*100).toFixed(1)+'%';
+  anxval.textContent=Math.round(anxiety*100)+'%';
+  vig.style.opacity=Math.min(0.75,anxiety*(reduceMotion?0.4:0.55)).toFixed(3);
+  if(!reduceMotion){
+    if(anxiety>0.85&&!holding)world.classList.add('shake');
+    else world.classList.remove('shake');
+  }
+}
+function strokePath(b,p){
+  ctx.beginPath();
+  for(var j=0;j<=16;j++){var pt=qp(b,p*j/16);if(j)ctx.lineTo(pt.x,pt.y);else ctx.moveTo(pt.x,pt.y);}
+  ctx.stroke();
+}
+function drawLabel(b,tp,placed,pulse){
+  var p=b.prog;
+  var a=Math.min(1,(p-0.5)*2.4);
+  if(b.strike)a*=0.4;
+  if(b.tier===4&&!b.strike)a*=0.82+0.18*(pulse||0);
+  var col=colorOf(b);
+  var right=b.x1>=b.x0;
+  var sx=tp.x*cam.s+cam.x,sy=tp.y*cam.s+cam.y;
+  if(sx>W-130)right=false;else if(sx<130)right=true;
+  var lx=tp.x+(right?9:-9);
+  var dy=0,ok=false,fnt=null,tw=0,sw=0,sh=0;
+  var sizeSets=[null,10.5];
+  var dimSets=[[0,-16,16,-32,32,-48,48,-64,64,-80,80,-96,96],[0,-14,14,-28,28,-42,42,-56,56,-72,72,-88,88]];
+  for(var pass=0;pass<2&&!ok;pass++){
+    fnt=fontOf(b,sizeSets[pass]);
+    ctx.font=fnt;ctx.textBaseline='middle';
+    tw=ctx.measureText(b.text).width;
+    sw=tw*cam.s;sh=(sizeSets[pass]?13:16)*cam.s;
+    var ds=dimSets[pass];
+    for(var di=0;di<ds.length;di++){
+      var ry0=sy+ds[di]-sh/2-5,ry1=sy+ds[di]+sh/2+5;
+      var rx0=right?sx+8:sx-8-sw,rx1=right?sx+8+sw:sx-8;
+      var free=true;
+      for(var rj=0;rj<placed.length;rj++){
+        var q=placed[rj];
+        if(rx0<q.x1&&rx1>q.x0&&ry0<q.y1&&ry1>q.y0){free=false;break;}
+      }
+      if(free){dy=ds[di];ok=true;break;}
+    }
+  }
+  if(ok){
+    var ly=tp.y+dy/cam.s;
+    ctx.globalAlpha=a;
+    ctx.textAlign=right?'left':'right';
+    ctx.font=fnt;
+    ctx.shadowColor=col;ctx.shadowBlur=5;
+    ctx.fillStyle=col;
+    ctx.fillText(b.text,lx,ly);
+    if(b.strike){
+      ctx.beginPath();ctx.moveTo(right?lx:lx-tw,ly);ctx.lineTo(right?lx+tw:lx,ly);
+      ctx.lineWidth=1.2/cam.s;ctx.strokeStyle=col;ctx.stroke();
+    }
+    b.lb={x0:right?lx:lx-tw,y0:ly-9,x1:right?lx+tw:lx,y1:ly+9};
+    placed.push({x0:right?sx+8:sx-8-sw,y0:sy+dy-sh/2-5,x1:right?sx+8+sw:sx-8,y1:sy+dy+sh/2+5});
+  }else{
+    b.lb=null;
+    ctx.globalAlpha=a*0.22;
+    ctx.textAlign=right?'left':'right';
+    ctx.font=fontOf(b);
+    ctx.fillStyle=col;
+    ctx.fillText(b.text,lx,tp.y);
+  }
+  ctx.shadowBlur=0;
+  ctx.globalAlpha=1;
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(cam.x,cam.y);
+  ctx.scale(cam.s,cam.s);
+  ctx.lineCap='round';
+  var placed=[];
+  for(var i=0;i<branches.length;i++){
+    var b=branches[i],p=easeOut(b.prog);
+    if(p<=0.01)continue;
+    var col=colorOf(b);
+    var w=Math.max(1,2.6-b.depth*0.32);
+    ctx.strokeStyle=col;ctx.fillStyle=col;
+    ctx.lineWidth=w;
+    ctx.shadowColor=col;ctx.shadowBlur=9+w*2;
+    strokePath(b,p);
+    var tp=qp(b,p);
+    ctx.beginPath();ctx.arc(tp.x,tp.y,1.5+w*0.18,0,6.2832);ctx.fill();
+    if((b.kids||0)>0){
+      var cr=b.childRefs||[],mp=0;
+      for(var ci=0;ci<cr.length;ci++){var cv=cr[ci].prog*(cr[ci].strike?0.4:1);if(cv>mp)mp=cv;}
+      if(mp>0.05){
+        var ds=2.6*Math.min(1,mp+0.25);
+        ctx.beginPath();ctx.arc(tp.x,tp.y,ds,0,6.2832);ctx.fill();
+        ctx.fillStyle='#ffffff';
+        ctx.beginPath();ctx.arc(tp.x,tp.y,ds*0.42,0,6.2832);ctx.fill();
+        ctx.fillStyle=col;
+      }
+    }
+    var pk=0;
+    if(b.tier===4&&p>0.9&&!b.strike){
+      pk=0.5+0.5*Math.sin(performance.now()/1000*(1.1+anxiety*1.9)*6.2832);
+      if(reduceMotion)pk=0.6;
+      ctx.globalAlpha=0.18+pk*0.3;
+      ctx.beginPath();ctx.arc(tp.x,tp.y,3.2+pk*3.4,0,6.2832);ctx.fill();
+      ctx.globalAlpha=1;
+    }
+    if(b.flash){ctx.globalAlpha=b.flash*0.5;ctx.beginPath();ctx.arc(tp.x,tp.y,8,0,6.2832);ctx.fill();ctx.globalAlpha=1;}
+    if(b.text&&p>0.5)drawLabel(b,tp,placed,pk);
+  }
+  ctx.fillStyle='#95ec69';
+  ctx.globalAlpha=0.22;ctx.beginPath();ctx.arc(anchor.x,anchor.y,6.5,0,6.2832);ctx.fill();
+  ctx.globalAlpha=1;ctx.beginPath();ctx.arc(anchor.x,anchor.y,2.6,0,6.2832);ctx.fill();
+  if(!reduceMotion&&!ended){
+    var pr=(performance.now()%1600)/1600;
+    ctx.strokeStyle='rgba(149,236,105,'+(0.4*(1-pr)).toFixed(3)+')';
+    ctx.lineWidth=1;ctx.globalAlpha=1;
+    ctx.beginPath();ctx.arc(anchor.x,anchor.y,4+pr*16,0,6.2832);ctx.stroke();
+  }
+  ctx.restore();
+}
+function updateCamera(dt){
+  if(!autoFit&&!pointers.size&&!pan&&!pDown&&Date.now()-lastUserCam>6000){
+    autoFit=true;fitBtn.hidden=true;
+    if(!SAVE.seenCamHint){SAVE.seenCamHint=true;persist();toast('没有操作时，视角会自动回到全景','good',3200);}
+  }
+  if(autoFit&&branches.length){
+    var minx=anchor.x,miny=anchor.y,maxx=anchor.x,maxy=anchor.y;
+    for(var i=0;i<branches.length;i++){
+      var q=qp(branches[i],Math.min(1,branches[i].prog));
+      if(q.x<minx)minx=q.x;if(q.x>maxx)maxx=q.x;
+      if(q.y<miny)miny=q.y;if(q.y>maxy)maxy=q.y;
+    }
+    var bw=maxx-minx+140,bh=maxy-miny+90;
+    var availW=(W-14)-(anchor.x-40),availH=(H-140)-92;
+    var ts=Math.min(1,availW/Math.max(140,bw),availH/Math.max(140,bh));
+    ts=Math.max(ts,0.28);
+    if(ts<0.999){
+      var cx=(minx+maxx)/2,cy=(miny+maxy)/2;
+      camT={x:((anchor.x-40)+(W-14))/2-cx*ts,y:(92+(H-140))/2-cy*ts,s:ts};
+    }else camT={x:0,y:0,s:1};
+  }
+  var k=Math.min(1,dt*3.5);
+  cam.x+=(camT.x-cam.x)*k;
+  cam.y+=(camT.y-cam.y)*k;
+  cam.s+=(camT.s-cam.s)*k;
+  fitBtn.hidden=autoFit;
+}
+
+/* ================= 主循环 ================= */
+function tick(ts){
+  raf=requestAnimationFrame(tick);
+  if(!last)last=ts;
+  var dt=Math.min(0.05,(ts-last)/1000);last=ts;
+  if(!running)return;
+  if(ended){
+    for(var k=0;k<branches.length;k++){branches[k].prog=Math.min(1,branches[k].prog+dt*0.9);}
+    updateCamera(dt);
+    draw();return;
+  }
+  var plotPaused=plotov.classList.contains('on');
+  var spd=plotPaused?0:(fast?9:1)*(holding?1.1:1.8);
+  waitMin+=spd*dt;
+  if(holding){anxiety=Math.max(0,anxiety-0.05*dt);holdT+=dt;}
+  else if(!plotPaused){anxiety=Math.min(1,anxiety+0.013*dt);holdT=0;}
+  if(anxiety>peak)peak=anxiety;
+  if(!ended&&SC.plot&&!plotFired){
+    var pnode=plotCur?SC.plot[plotCur]:SC.plot.start;
+    if(waitMin>=pnode.at){plotFired=true;firePlot(pnode);}
+  }
+  if(!ended&&!typeDone&&waitMin>=130){typeDone=true;openTypeBeat();}
+  var i,b;
+  if(rootQueue.length&&!ended){
+    rootClock-=dt;
+    if(rootClock<=0){spawn(null,false,rootQueue.shift());rootClock=2.4;}
+  }
+  if(!holding){
+    for(i=0;i<branches.length;i++){
+      b=branches[i];
+      if(b.strike)b.prog=Math.max(0.22,b.prog-dt*0.7);
+      else b.prog=Math.min(1,b.prog+dt*0.9);
+      if(b.flash)b.flash=Math.max(0,b.flash-dt*2.2);
+    }
+    spawnClock-=dt*(1+anxiety*0.95);
+    if(spawnClock<=0){
+      spawnClock=1.6-(waitMin/TOTAL)*0.7;
+      var pp=pickParent();if(pp)spawn(pp,false);
+      if(anxiety>0.35&&Math.random()<0.7){var pp2=pickParent();if(pp2)spawn(pp2,false);}
+    }
+    var hasTree=pickParent()!=null;
+    if(!hasTree&&!echoOn&&!ended){
+      echoOn=true;echoClock=1.6;
+      toast('想无可想了。开始翻来覆去。','warn',3200);
+    }
+    if(echoOn&&!ended&&branches.length<60){
+      echoClock-=dt;
+      if(echoClock<=0){
+        echoClock=1.5+Math.random()*1.3;
+        var eb=branches[(Math.random()*branches.length)|0];
+        if(eb&&eb.text){spawnEcho(eb);bump(0.012);}
+      }
+    }
+  }else{
+    for(i=0;i<branches.length;i++){
+      b=branches[i];
+      b.prog=Math.max(0,b.prog-dt*0.55);
+      if(b.flash)b.flash=0;
+    }
+    breathT+=dt;
+    var ph=Math.floor(breathT/2)%2;
+    if(ph!==lastPhase){lastPhase=ph;breathTxt.textContent=ph===0?'吸 —':'呼 ——';vib(15);}
+    if(breathT>=breathNext){
+      breathNext+=4;bump(-0.03);
+      breathEl.classList.add('pulse');
+      setTimeout(function(){breathEl.classList.remove('pulse');},500);
+    }
+    if(holdT>4&&branches.length){
+      clearClock-=dt;
+      if(clearClock<=0){clearClock=6;var gp=pickParent();if(gp)spawn(gp,true);}
+    }
+  }
+  if(buzzWin>0){
+    buzzWin-=dt;
+    if(buzzWin<=0&&holding){toast('你没有看。做得好。','good');bump(-0.03);clearCount++;}
+  }
+  if(pending){
+    pending.t-=dt;
+    if(pending.t<=0){
+      if(pending.type==='typing'){setStatus('online');if(!holding){bump(0.12);toast(SC.ev.typing,'warn');}}
+      else{toast(SC.ev.dotOk,'good');bump(-0.02);}
+      pending=null;
+    }
+  }
+  eventClock-=dt;
+  if(eventClock<=0&&waitMin<TOTAL-3)fireEvent();
+  heartbeat();
+  updateHUD();
+  updateCamera(dt);
+  if(waitMin>=TOTAL&&!ended)finish();
+  draw();
+}
+
+/* ================= 剧情 ================= */
+function timeAt(min){
+  var p=SC.sentTime.split(':');
+  var t=(+p[0])*60+(+p[1])+Math.round(min);
+  var h=Math.floor(t/60)%24;
+  return h+':'+pad(t%60);
+}
+function forceThought(text){
+  var before=branches.length;
+  spawn(pickParent(),false);
+  if(branches.length>before){
+    var nb=branches[branches.length-1];
+    nb.text=text;
+    nb.tier=Math.max(2,nb.tier);
+    collect(text,String(nb.tier));
+  }
+}
+function firePlot(beat){
+  if(ended)return;
+  $('plotTime').textContent=timeAt(beat.at);
+  $('plotTitle').textContent=beat.title;
+  $('plotBody').textContent=beat.body;
+  var ob=$('plotOpts');
+  ob.innerHTML='';
+  beat.opts.forEach(function(o,oi){
+    var b=document.createElement('button');
+    b.type='button';
+    b.className='popt cursor-interaction'+(oi===0?' deep':'');
+    b.textContent=o.t;
+    b.addEventListener('click',function(){
+      if(ended)return;
+      plotov.classList.remove('on');
+      $('plotOpts').innerHTML='';
+      plotFired=false;
+      moodPts+=o.d?1:-1;
+      bump(o.fx);
+      if(o.thought){forceThought(o.thought);toast(o.thought,'warn');}
+      if(o.next){plotCur=o.next;}
+      else{endKey=o.end||null;plotFired=true;plotCur=null;}
+      if(!o.thought){
+        if(o.fx<0){moodPts--;toast(Math.random()<0.3?pick(CARE):'你放过了自己','good');}
+        else{toast('心更乱了一分','warn');}
+      }
+      persist();
+    });
+    ob.appendChild(b);
+  });
+  plotov.classList.add('on');
+  tone(520,760,0.15,0.09,'sine');vib(20);
+}
+function openTypeBeat(){
+  if(ended)return;
+  typeov.classList.add('on');
+  tone(440,330,0.18,0.08,'sine');
+  setTimeout(function(){try{$('typeInput').focus();}catch(e){}},300);
+}
+
+/* ================= 结局 ================= */
+function rateOf(n){
+  var r=RATES[0];
+  for(var i=0;i<RATES.length;i++)if(n>=RATES[i].min)r=RATES[i];
+  return r;
+}
+function finish(){
+  ended=true;pending=null;
+  plotov.classList.remove('on');typeov.classList.remove('on');
+  var tk=++runToken;
+  holdBtn.disabled=true;holdBtn.textContent='天亮了';
+  world.classList.remove('shake');
+  setStatus('typing');
+  SAVE.stats.games++;
+  SAVE.stats.sumT=(SAVE.stats.sumT||0)+branchCount;
+  if(peak>=0.9)moodPts++;
+  var r=rateOf(branchCount);
+  endRateObj=r;
+  if(r===RATES[3])SAVE.stats.oscars++;
+  persist();
+  vib(80);
+  setTimeout(function(){
+    if(tk!==runToken)return;
+    setStatus('done');
+    var E=(SC.plot&&endKey)?SC.plot[endKey]:null;
+    rbubble.textContent=E?E.reply:pick(SC.replies);
+    replyrow.hidden=false;
+    tone(523,null,0.14,0.1,'sine');tone(784,null,0.2,0.1,'sine',actx?actx.currentTime+0.16:0);
+    setTimeout(function(){if(tk===runToken)replybar.classList.add('on');},1000);
+  },1700);
+}
+function sendMyReply(txt){
+  if(!ended)return;
+  replybar.classList.remove('on');
+  var tk=runToken;
+  myReplyText=txt;
+  myreplyText.textContent=txt;
+  myreply.hidden=false;
+  tone(300,720,0.14,0.09,'sine');vib(30);
+  setTimeout(function(){if(tk===runToken)withdrawBtn.hidden=false;},250);
+  setTimeout(function(){if(tk===runToken)withdrawBtn.hidden=true;},2100);
+  setTimeout(function(){if(tk===runToken)showEnd(endRateObj);},2700);
+}
+function checkAch(){
+  var out=[];
+  var h=new Date().getHours();
+  var A=[
+    ['ninja','忍者','没点开任何通知',notifTapped===0&&notifSeen>=2],
+    ['hand','手贱大师','点开了 3 条通知',notifTapped>=3],
+    ['deep','越陷越深','顺着念头想了 5 次',tapThink>=5],
+    ['cut','断念师','划掉了 3 个念头',struck>=3],
+    ['owl','夜猫子','在凌晨 0 至 5 点游玩',h>=0&&h<5]
+  ];
+  A.forEach(function(a){
+    if(a[3]&&!SAVE.stats.ach[a[0]]){SAVE.stats.ach[a[0]]=1;out.push('「'+a[1]+'」');}
+  });
+  if(out.length)persist();
+  return out;
+}
+function trendLine(){
+  var g=SAVE.stats.games;
+  if(g<2)return '这是你的第一场演出。';
+  var avg=((SAVE.stats.sumT||0)-branchCount)/(g-1);
+  var diff=Math.round(avg-branchCount);
+  if(diff>3)return '顺便说：这局的念头比你平均少了 '+diff+' 根，你在变轻。';
+  if(diff<-3)return '这局的念头比平时多了些——没关系，谁都有这样的夜晚。';
+  return '你的念头数量，和往常差不多。';
+}
+function showEnd(r){
+  var E=(SC.plot&&endKey)?SC.plot[endKey]:null;
+  var quip=r.quip;
+  if(clearCount>0)quip+=' 另外，你有 '+clearCount+' 次试着放过自己。';
+  if(myReplyText){
+    var ep=EPILOGUES[myReplyText]||'你回了一句自己的话。这一次，树没有再长。';
+    quip+=' '+ep;
+  }
+  var mood=moodPts>=2?'deep':(moodPts<=-2?'free':'mid');
+  var M=MOODL[mood];
+  $('endTitle').textContent=SC.doneTitle;
+  $('endRate').textContent='「'+r.name+'」';
+  $('endQuip').textContent=quip;
+  $('endTruth').textContent=E?E.truth:SC.truth;
+  $('endStats').textContent='冒出的念头 '+branchCount+' 根 · 峰值内耗 '+Math.round(peak*100)+'% · 放过自己 '+clearCount+' 次';
+  var cb=$('careBox');
+  cb.innerHTML='<div class="caret">'+M.t+'</div><div class="carec">'+M.c+((E&&E.care)?' '+E.care:'')+'</div><div class="caref">'+trendLine()+'</div>';
+  cb.hidden=false;
+  var unlocks=checkAch();
+  if(unlocks.length){achline.hidden=false;achline.textContent='🏆 本局解锁：'+unlocks.join(' ');}
+  else achline.hidden=true;
+  endOv.classList.add('on');
+  reopenBtn.hidden=true;
+}
+function goHome(){
+  runToken++;running=false;ended=false;pending=null;
+  endOv.classList.remove('on');tjOv.classList.remove('on');introOv.classList.remove('on');sendOv.classList.remove('on');
+  plotov.classList.remove('on');typeov.classList.remove('on');
+  homeOv.classList.add('on');
+  stage.classList.add('idle');
+  renderHome();
+  persist();
+}
+
+/* ================= 海报 ================= */
+function wrapText(x,text,px,py,maxw,lh){
+  var line='',y=py;
+  for(var i=0;i<text.length;i++){
+    var test=line+text[i];
+    if(x.measureText(test).width>maxw&&line){x.fillText(line,px,y);line=text[i];y+=lh;}
+    else line=test;
+  }
+  if(line)x.fillText(line,px,y);
+}
+function buildCard(r){
+  var c=document.createElement('canvas');c.width=900;c.height=1250;
+  var x=c.getContext('2d');
+  x.fillStyle='#05060b';x.fillRect(0,0,900,1250);
+  x.textAlign='left';x.textBaseline='alphabetic';
+  x.fillStyle='#eef2ff';x.font='500 46px '+FF;x.fillText('念头过境',70,104);
+  x.fillStyle='#8a93a6';x.font='400 19px '+FF;
+  x.fillText('《'+SC.name+'》 · 一场持续 '+Math.floor(SC.totalMin/60)+' 小时 '+(SC.totalMin%60)+' 分的内心演出',70,146);
+  var minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+  branches.forEach(function(b){
+    [[b.x0,b.y0],[b.x1,b.y1],[b.cx,b.cy]].forEach(function(p){
+      if(p[0]<minx)minx=p[0];if(p[0]>maxx)maxx=p[0];
+      if(p[1]<miny)miny=p[1];if(p[1]>maxy)maxy=p[1];
+    });
+  });
+  if(maxx<minx){minx=0;maxx=100;miny=0;maxy=100;}
+  var rx=70,ry=190,rw=760,rh=660;
+  var s=Math.min(rw/Math.max(1,maxx-minx),rh/Math.max(1,maxy-miny),2.2);
+  var ox=rx+(rw-(maxx-minx)*s)/2-minx*s;
+  var oy=ry+(rh-(maxy-miny)*s)/2-miny*s;
+  x.lineCap='round';
+  branches.forEach(function(b){
+    var p=easeOut(b.prog);if(p<=0.01)return;
+    var col=colorOf(b);
+    x.strokeStyle=col;x.shadowColor=col;x.shadowBlur=9;
+    x.lineWidth=Math.max(1.4,2.6-b.depth*0.15);
+    x.beginPath();
+    for(var j=0;j<=16;j++){var pt=qp(b,p*j/16);var px=pt.x*s+ox,py=pt.y*s+oy;if(j)x.lineTo(px,py);else x.moveTo(px,py);}
+    x.stroke();
+    if(b.text&&p>0.5){
+      var tp=qp(b,p),right=b.x1>=b.x0;
+      if(tp.x>W-130)right=false;else if(tp.x<130)right=true;
+      x.shadowBlur=6;x.fillStyle=col;x.globalAlpha=Math.min(1,(p-0.5)*2.4);
+      x.font=''+(Math.min(4,b.tier)>=3?600:500)+' '+(13+Math.min(4,b.tier))+'px '+FF;
+      x.textAlign=right?'left':'right';x.textBaseline='middle';
+      x.fillText(b.text,tp.x*s+ox+(right?9:-9),tp.y*s+oy);
+      x.globalAlpha=1;
+    }
+  });
+  x.shadowBlur=0;
+  x.fillStyle='#95ec69';x.beginPath();x.arc(anchor.x*s+ox,anchor.y*s+oy,4,0,6.2832);x.fill();
+  x.fillStyle='#8a93a6';x.font='400 18px '+FF;x.textAlign='left';x.textBaseline='alphabetic';
+  x.fillText('冒出的念头 '+branchCount+' 根    峰值内耗 '+Math.round(peak*100)+'%    放过自己 '+clearCount+' 次',70,918);
+  if(myReplyText)x.fillText('你最后回了一句：「'+myReplyText.slice(0,18)+'」',70,952);
+  x.fillStyle='#ffd27a';x.font='500 44px '+FF;x.fillText('「'+r.name+'」',70,1008);
+  x.fillStyle='#c9d4ea';x.font='400 20px '+FF;wrapText(x,r.quip,70,1060,760,30);
+  x.fillStyle='#5c6478';x.font='400 17px '+FF;
+  x.fillText(SC.truth.replace('本局真相：','—— ')+' ——',70,1195);
+  return c;
+}
+
+/* ================= 图鉴 / 主页 ================= */
+function renderHome(){
+  var st=SAVE.stats;
+  $('homestats').textContent='已内耗 '+st.games+' 局 · 冒出 '+st.thoughts+' 个念头 · 放过自己 '+st.clears+' 次'+(st.oscars>0?' · 拿过 '+st.oscars+' 次脑内奥斯卡':'');
+  var html='';
+  SCENES.forEach(function(s,i){
+    html+='<button type="button" class="chip cursor-interaction" data-scene="'+i+'"><span class="ic">'+s.ic+'</span>'+s.name+'<span style="color:var(--dim)"> · '+s.tag+'</span></button>';
+  });
+  $('chips').innerHTML=html;
+  Array.prototype.forEach.call($('chips').children,function(btn){
+    btn.addEventListener('click',function(){startGame(SCENES[+btn.getAttribute('data-scene')]);});
+  });
+}
+function renderTj(){
+  var total=0,got=0,html='';
+  var achNames=[['ninja','忍者'],['hand','手贱大师'],['deep','越陷越深'],['cut','断念师'],['owl','夜猫子']];
+  var aGot=0;
+  html+='<div class="tjgroup tjach"><div class="tjglabel">成就<span class="cnt"></span></div><div class="tjchips">';
+  achNames.forEach(function(a){
+    var has=!!SAVE.stats.ach[a[0]];
+    if(has)aGot++;
+    html+='<span class="tjchip'+(has?' ok':' miss')+'">'+(has?a[1]:'？？？')+'</span>';
+  });
+  html+='</div></div>';
+  function collectTree(k,d,out){
+    k.forEach(function(n){
+      var tier=d>=4?4:(d>=2?2:0);
+      out.push({t:n.t,tier:tier});
+      collectTree(n.k||[],d+1,out);
+    });
+  }
+  GROUPS.forEach(function(g){
+    var texts=[];
+    SCENES.forEach(function(s){
+      if(g.tiers[0]==='clear')texts=texts.concat(s.clear);
+      else{
+        var all=[];
+        collectTree(s.tree||[],0,all);
+        all.forEach(function(o){if(g.tiers.indexOf(o.tier)>=0&&texts.indexOf(o.t)<0)texts.push(o.t);});
+      }
+    });
+    texts=texts.filter(function(v,i,a){return a.indexOf(v)===i;});
+    var owned=texts.filter(function(t){return SAVE.col[t];});
+    total+=texts.length;got+=owned.length;
+    html+='<div class="tjgroup '+g.key+'"><div class="tjglabel">'+g.label+'<span class="cnt">'+owned.length+' / '+texts.length+'</span></div><div class="tjchips">';
+    texts.forEach(function(t){
+      html+=SAVE.col[t]?('<span class="tjchip">'+t+'</span>'):'<span class="tjchip miss">？？？</span>';
+    });
+    html+='</div></div>';
+  });
+  if(SAVE.custom&&SAVE.custom.length){
+    html+='<div class="tjgroup gD"><div class="tjglabel">你删掉的话<span class="cnt">'+SAVE.custom.length+'</span></div><div class="tjchips">';
+    SAVE.custom.forEach(function(t){html+='<span class="tjchip">'+t+'</span>';});
+    html+='</div></div>';
+  }
+  $('tjCount').textContent='收集进度 '+got+' / '+total+' · 成就 '+aGot+' / '+achNames.length+' —— 每个念头，都是你亲口说过的内心 OS';
+  $('tjBody').innerHTML=html;
+}
+
+/* ================= 开始 / 交互 ================= */
+function startGame(scene){
+  SC=scene||pick(SCENES);
+  runToken++;
+  resetState();
+  homeOv.classList.remove('on');endOv.classList.remove('on');tjOv.classList.remove('on');introOv.classList.remove('on');
+  stage.classList.remove('idle');
+  computeAnchor();
+  sendContact.textContent='给 '+SC.contact;
+  msgInput.value=SC.msg;
+  sendOv.classList.add('on');
+  setTimeout(function(){try{msgInput.focus();}catch(e){}},350);
+}
+function doSend(){
+  if(running||ended)return;
+  var txt=msgInput.value.trim()||SC.msg;
+  bubble.textContent=txt;
+  sendOv.classList.remove('on');
+  running=true;
+  RUN={bend:0.18+Math.random()*0.22,gap:Math.max(84,Math.min(126,(W-anchor.x-84)/6))};
+  buildGraph();
+  spawn(null,false);
+  rootQueue=[1,2];
+  rootClock=2.2;
+  last=0;
+  if(!raf)raf=requestAnimationFrame(tick);
+  ensureAudio();if(actx&&actx.state==='suspended')actx.resume();
+  tone(300,720,0.16,0.1,'sine');vib(20);
+}
+function startHold(e){
+  if(ended||!running)return;
+  if(e&&e.cancelable)e.preventDefault();
+  holding=true;holdT=0;breathT=0;breathNext=4;lastPhase=-1;
+  breathEl.classList.add('on');breathTxt.textContent='吸 —';
+  holdBtn.classList.add('holding');
+  holdBtn.setAttribute('aria-pressed','true');
+  holdHint.textContent='跟着呼吸，思绪正在平息……';
+  try{holdBtn.setPointerCapture&&e&&e.pointerId!==undefined&&holdBtn.setPointerCapture(e.pointerId);}catch(err){}
+}
+function endHold(){
+  if(!holding)return;
+  holding=false;
+  breathEl.classList.remove('on');
+  holdBtn.classList.remove('holding');
+  holdBtn.setAttribute('aria-pressed','false');
+  holdHint.textContent='盯着屏幕，念头会疯长';
+  if(buzzWin>0){
+    buzzWin=0;bump(0.08);
+    toast(pick(BAIT),'warn');
+  }
+}
+holdBtn.addEventListener('pointerdown',startHold);
+window.addEventListener('pointerup',endHold);
+window.addEventListener('pointercancel',endHold);
+window.addEventListener('blur',endHold);
+holdBtn.addEventListener('contextmenu',function(e){e.preventDefault();});
+holdBtn.addEventListener('keydown',function(e){if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();startHold();}});
+holdBtn.addEventListener('keyup',function(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();endHold();}});
+stage.addEventListener('contextmenu',function(e){e.preventDefault();});
+window.addEventListener('keydown',function(e){
+  if((e.key==='f'||e.key==='F')&&!e.repeat&&!ended){fast=!fast;toast(fast?'⏩ 测试加速 开':'测试加速 关');}
+});
+
+$('go').addEventListener('click',function(){
+  if(!SAVE.seenIntro){introOv.classList.add('on');return;}
+  startGame(null);
+});
+$('introOk').addEventListener('click',function(){
+  SAVE.seenIntro=true;persist();
+  introOv.classList.remove('on');
+  startGame(null);
+});
+$('btnIntro').addEventListener('click',function(){introOv.classList.add('on');});
+$('btnTj').addEventListener('click',function(){renderTj();tjOv.classList.add('on');});
+$('tjClose').addEventListener('click',function(){tjOv.classList.remove('on');});
+$('back').addEventListener('click',goHome);
+$('btnSwitch').addEventListener('click',goHome);
+$('btnAgain').addEventListener('click',function(){startGame(SC);});
+$('btnTree').addEventListener('click',function(){endOv.classList.remove('on');reopenBtn.hidden=false;});
+reopenBtn.addEventListener('click',function(){endOv.classList.add('on');reopenBtn.hidden=true;});
+$('btnSave').addEventListener('click',function(){
+  try{
+    var url=buildCard(rateOf(branchCount)).toDataURL('image/png');
+    var img=$('shareImg');img.src=url;img.hidden=false;
+    var hint=$('shareHint');hint.hidden=false;hint.textContent='手机长按图片 / 电脑右键即可保存';
+    try{var a=document.createElement('a');a.href=url;a.download='念头过境.png';document.body.appendChild(a);a.click();a.remove();}catch(e){}
+  }catch(e){toast('生成海报失败','warn');}
+});
+soundBtn.addEventListener('click',function(){
+  SAVE.sound=!SAVE.sound;persist();
+  updateSoundBtn();
+  if(SAVE.sound){ensureAudio();if(actx&&actx.state==='suspended')actx.resume();}
+});
+function updateSoundBtn(){
+  soundBtn.textContent=SAVE.sound?'♪ 音效 开':'♪ 音效 关';
+  soundBtn.setAttribute('aria-pressed',SAVE.sound?'true':'false');
+}
+document.addEventListener('visibilitychange',function(){if(document.hidden)persist();});
+$('btnDel').addEventListener('click',function(){
+  var txt=$('typeInput').value.trim();
+  typeov.classList.remove('on');
+  $('typeInput').value='';
+  if(txt){
+    if(!SAVE.custom)SAVE.custom=[];
+    if(SAVE.custom.length<20){SAVE.custom.push(txt);}
+    SAVE.stats.thoughts++;
+    persist();
+    toast('你删掉了刚刚打的话','warn');
+    bump(0.05);
+    tone(300,180,0.14,0.09,'sine');vib(25);
+  }
+});
+
+/* ---------- v1.1 交互接线 ---------- */
+$('btnSend').addEventListener('click',doSend);
+msgInput.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();doSend();}});
+withdrawBtn.addEventListener('click',function(){
+  withdrawBtn.hidden=true;
+  toast('超过两分钟，撤不回了。','warn');
+  bump(0.04);
+});
+Array.prototype.forEach.call(replybar.querySelectorAll('.rchip'),function(b){
+  b.addEventListener('click',function(){sendMyReply(b.getAttribute('data-r'));});
+});
+msgrow.addEventListener('click',function(){
+  if(running&&!ended&&++bubbleTaps===1)toast('微信没有「已读」。他看没看，永远是个谜。');
+});
+function hitLabel(x,y){
+  for(var i=branches.length-1;i>=0;i--){
+    var b=branches[i];
+    if(b.strike||!b.text||!b.lb||b.prog<0.6)continue;
+    if(x>=b.lb.x0-6&&x<=b.lb.x1+6&&y>=b.lb.y0-6&&y<=b.lb.y1+6)return b;
+  }
+  return null;
+}
+function thinkDeeper(b){
+  if(branches.length>=42){toast('念头已经多到画不下了','warn');return;}
+  b.flash=1;tapThink++;bump(0.06);
+  spawn(b,false);
+  tone(240,150,0.14,0.09,'sawtooth');vib(12);
+}
+function strikeThought(b){
+  if(b.strike)return;
+  b.strike=true;struck++;clearCount++;
+  bump(-0.08);SAVE.stats.clears++;moodPts--;
+  toast(Math.random()<0.3?pick(CARE):'划掉一个念头。','good');
+  tone(660,990,0.18,0.08,'sine');vib(25);
+  persist();
+}
+cv.addEventListener('pointerdown',function(e){
+  if(holding||(!running&&!ended))return;
+  var r=cv.getBoundingClientRect();
+  var x=e.clientX-r.left,y=e.clientY-r.top;
+  pointers.set(e.pointerId,{x:x,y:y});
+  if(pointers.size===2){
+    clearTimeout(pTimer);pDown=null;pan=null;
+    var pts=[...pointers.values()];
+    pinch={d0:Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y)||1,
+      mx0:(pts[0].x+pts[1].x)/2,my0:(pts[0].y+pts[1].y)/2,
+      camx:cam.x,camy:cam.y,cams:cam.s};
+    return;
+  }
+  var b=hitLabel((x-cam.x)/cam.s,(y-cam.y)/cam.s);
+  if(b&&running&&!ended){
+    pDown={x:x,y:y,b:b,t:Date.now(),done:false};
+    clearTimeout(pTimer);
+    pTimer=setTimeout(function(){
+      if(pDown&&!pDown.done&&pDown.b===b){pDown.done=true;strikeThought(b);}
+    },480);
+  }else{
+    pan={x0:x,y0:y,camx:cam.x,camy:cam.y,moved:false};
+  }
+});
+cv.addEventListener('pointermove',function(e){
+  if(!pointers.size&&!pDown&&!pan)return;
+  var r=cv.getBoundingClientRect();
+  var x=e.clientX-r.left,y=e.clientY-r.top;
+  if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:x,y:y});
+  if(pinch&&pointers.size>=2){
+    lastUserCam=Date.now();
+    var pts=[...pointers.values()];
+    var d=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y)||1;
+    var mx=(pts[0].x+pts[1].x)/2,my=(pts[0].y+pts[1].y)/2;
+    var ns=Math.min(3,Math.max(0.4,pinch.cams*d/pinch.d0));
+    var kk=ns/pinch.cams;
+    cam.s=ns;
+    cam.x=mx-(pinch.mx0-pinch.camx)*kk;
+    cam.y=my-(pinch.my0-pinch.camy)*kk;
+    camT={x:cam.x,y:cam.y,s:ns};
+    stopAutoFit();
+    return;
+  }
+  if(pDown&&!pDown.done){
+    if(Math.abs(x-pDown.x)>14||Math.abs(y-pDown.y)>14){
+      clearTimeout(pTimer);pDown.done=true;
+      if(!pDown.b){pan={x0:x,y0:y,camx:cam.x,camy:cam.y,moved:true};}
+    }
+    return;
+  }
+  if(pan){
+    if(!pan.moved&&(Math.abs(x-pan.x0)>6||Math.abs(y-pan.y0)>6)){pan.moved=true;stopAutoFit();}
+    if(pan.moved){
+      lastUserCam=Date.now();
+      cam.x=pan.camx+(x-pan.x0);
+      cam.y=pan.camy+(y-pan.y0);
+      camT={x:cam.x,y:cam.y,s:cam.s};
+      clampCam();
+    }
+  }
+});
+function endPointer(e){
+  pointers.delete(e.pointerId);
+  if(pointers.size<2)pinch=null;
+  clearTimeout(pTimer);
+  if(pDown&&!pDown.done){
+    var quick=Date.now()-pDown.t<480;
+    var b=pDown.b;
+    pDown=null;
+    if(quick&&b&&running&&!ended){thinkDeeper(b);return;}
+  }
+  pDown=null;
+  if(pan){
+    var moved=pan.moved,px=pan.x0,py=pan.y0;
+    pan=null;
+    if(!moved){
+      var now=Date.now();
+      if(now-lastTapT<300){zoomToggle(px,py);lastTapT=0;return;}
+      lastTapT=now;
+      if(running&&!ended){
+        emptyTaps++;
+        if(emptyTaps===3)toast('别戳了，他不会因此多回你一句。');
+        if(emptyTaps===7)toast('你戳屏幕的样子，像极了他不回你。');
+      }
+    }
+  }
+}
+cv.addEventListener('pointerup',endPointer);
+cv.addEventListener('pointercancel',endPointer);
+cv.addEventListener('wheel',function(e){
+  if(!running&&!ended)return;
+  e.preventDefault();
+  var r=cv.getBoundingClientRect();
+  var ns=Math.min(3,Math.max(0.4,cam.s*(e.deltaY<0?1.12:0.89)));
+  zoomAt(e.clientX-r.left,e.clientY-r.top,ns);
+  stopAutoFit();
+},{passive:false});
+function zoomAt(x,y,ns){
+  var kk=ns/cam.s;
+  cam.s=ns;
+  cam.x=x-(x-cam.x)*kk;
+  cam.y=y-(y-cam.y)*kk;
+  camT={x:cam.x,y:cam.y,s:ns};
+  clampCam();
+}
+function zoomToggle(x,y){zoomAt(x,y,cam.s>1.4?1:2);stopAutoFit();}
+function stopAutoFit(){
+  lastUserCam=Date.now();
+  if(autoFit){autoFit=false;fitBtn.hidden=false;}
+}
+function clampCam(){
+  var m=320*cam.s;
+  cam.x=Math.min(W*0.6,Math.max(-m,cam.x));
+  cam.y=Math.min(H*0.5,Math.max(-m,cam.y));
+  camT={x:cam.x,y:cam.y,s:cam.s};
+}
+fitBtn.addEventListener('click',function(){autoFit=true;fitBtn.hidden=true;});
+cv.addEventListener('mousemove',function(e){
+  if(!running||ended){cv.style.cursor='default';return;}
+  var r=cv.getBoundingClientRect();
+  cv.style.cursor=hitLabel((e.clientX-r.left-cam.x)/cam.s,(e.clientY-r.top-cam.y)/cam.s)?'pointer':'grab';
+});
+
+/* ================= 启动 ================= */
+branches=[];used={};running=false;ended=false;fast=false;
+window.__RUN=RUN;
+window.__DBG={spawn:function(){spawn(pickParent(),false);},count:function(){return branches.length;},cam:function(){return cam;},b0:function(){return branches[0];},labels:function(){return branches.filter(function(b){return b.text&&b.lb&&!b.strike&&b.prog>=0.6;}).map(function(b){return {t:b.text,lb:b.lb};});}};
+updateSoundBtn();
+renderHome();
+if(!SAVE.seenIntro){/* 首次进入直接看到主页，点开始时再教玩法 */}
+resize();
+})();
+</script>
+</body>
+</html>
