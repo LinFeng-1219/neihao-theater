@@ -6,6 +6,10 @@
 <meta name="theme-color" content="#05060b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="念头过境">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <title>念头过境 · 内耗模拟器</title>
 <style>
 :root{
@@ -331,7 +335,7 @@ button{-webkit-tap-highlight-color:transparent}
     <div class="ov on" id="home">
       <div class="panel">
         <div class="title">念头过境</div>
-        <div class="vol">内耗模拟器 · 手机版 V2.4 · 六幕</div>
+        <div class="vol">内耗模拟器 · 手机版 V2.5 · 六幕</div>
         <p class="desc">每一局，都是一段你经历过的等待。<br>念头如风过境，长成一棵发光的树，<br>而你要练习的，是<b>放下手机</b>。</p>
         <button type="button" class="primary cursor-interaction" id="go">🌙 开始今晚 · 随机剧本</button>
         <div id="chips"></div>
@@ -435,6 +439,7 @@ button{-webkit-tap-highlight-color:transparent}
         </div>
         <div class="btnrow">
           <button type="button" class="ghost cursor-interaction" id="btnSave">保存思维树海报</button>
+          <button type="button" class="ghost cursor-interaction" id="btnShare" hidden>⤴ 分享</button>
           <button type="button" class="ghost cursor-interaction" id="btnSwitch">换个剧本</button>
         </div>
       </div>
@@ -1133,8 +1138,18 @@ function draw(){
     var w=Math.max(1,2.6-b.depth*0.32);
     ctx.strokeStyle=col;ctx.fillStyle=col;
     ctx.lineWidth=w;
-    ctx.shadowColor=col;ctx.shadowBlur=9+w*2;
-    strokePath(b,p);
+    /* 光晕分级：树大时只给活跃枝/主枝/清醒枝/剧情枝保留 shadowBlur，老枝用两次描边近似 */
+    var hot=branches.length<=24||b.prog<1||b.gold||b.plot||b.depth<=3;
+    if(hot){
+      ctx.shadowColor=col;ctx.shadowBlur=9+w*2;
+      strokePath(b,p);
+      ctx.shadowBlur=0;
+    }else{
+      ctx.globalAlpha=0.28;ctx.lineWidth=w+2.6;
+      strokePath(b,p);
+      ctx.globalAlpha=1;ctx.lineWidth=w;
+      strokePath(b,p);
+    }
     var tp=qp(b,p);
     ctx.beginPath();ctx.arc(tp.x,tp.y,1.5+w*0.18,0,6.2832);ctx.fill();
     if((b.kids||0)>0){
@@ -1214,7 +1229,8 @@ function tick(ts){
   if(ended){
     for(var k=0;k<branches.length;k++){branches[k].prog=Math.min(1,branches[k].prog+dt*0.9);}
     updateCamera(dt);
-    draw();return;
+    if(!endOv.classList.contains('on')&&!histOv.classList.contains('on'))draw();
+    return;
   }
   var plotPaused=plotov.classList.contains('on');
   var spd=plotPaused?0:(fast?9:1)*(holding?1.1:1.8);
@@ -1303,7 +1319,7 @@ function tick(ts){
   updateHUD();
   updateCamera(dt);
   if(waitMin>=TOTAL&&!ended)finish();
-  draw();
+  if(!tjOv.classList.contains('on')&&!histOv.classList.contains('on')&&!endOv.classList.contains('on')&&!introOv.classList.contains('on')&&!fakeov.classList.contains('on'))draw();
 }
 
 /* ================= 剧情 ================= */
@@ -1811,6 +1827,24 @@ $('btnSave').addEventListener('click',function(){
     try{var a=document.createElement('a');a.href=url;a.download='念头过境.png';document.body.appendChild(a);a.click();a.remove();}catch(e){}
   }catch(e){toast('生成海报失败','warn');}
 });
+$('btnShare').addEventListener('click',function(){
+  try{
+    var c=buildCard(rateOf(branchCount));
+    if(navigator.canShare&&navigator.canShare({files:[new File([new Blob()], 'a.png', {type:'image/png'})]})){
+      c.toBlob(function(blob){
+        if(!blob){toast('分享失败','warn');return;}
+        var f=new File([blob],'念头过境.png',{type:'image/png'});
+        navigator.share({files:[f],title:'念头过境',text:'今晚的内耗长成了这棵树。'}).then(function(){
+          toast('分享出去了。','good');
+        }).catch(function(){});
+      },'image/png');
+    }else{
+      $('btnSave').click();
+      toast('这个环境不支持直享分享，已改为保存图片','good',3600);
+    }
+  }catch(e){toast('分享失败','warn');}
+});
+if(navigator.canShare&&navigator.share){$('btnShare').hidden=false;}
 soundBtn.addEventListener('click',function(){
   SAVE.sound=!SAVE.sound;persist();
   updateSoundBtn();
@@ -2034,6 +2068,9 @@ updateSoundBtn();
 renderHome();
 if(!SAVE.seenIntro){/* 首次进入直接看到主页，点开始时再教玩法 */}
 resize();
+if('serviceWorker' in navigator&&location.protocol==='https:'){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
 })();
 </script>
 </body>

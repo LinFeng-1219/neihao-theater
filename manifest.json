@@ -1,0 +1,17 @@
+{
+  "name": "念头过境 · 内耗模拟器",
+  "short_name": "念头过境",
+  "description": "每一局，都是一段你经历过的等待。念头如风过境，长成一棵发光的树，而你要练习的，是放下手机。",
+  "lang": "zh-CN",
+  "start_url": "./index.html?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#05060b",
+  "background_color": "#05060b",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
