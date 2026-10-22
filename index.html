@@ -245,6 +245,9 @@ body{
 #plotov .pbody{font-size:14px;line-height:1.9;padding:6px 14px 4px}
 #plotov .popts{display:flex;flex-direction:column;gap:8px;padding:12px 14px 16px}
 #plotov .popt{font:inherit;font-size:13px;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:10px;padding:11px 14px;text-align:left}
+#plotov .pfx{float:right;font-size:10.5px;letter-spacing:.06em;opacity:.75}
+#plotov .popt.deep .pfx{color:#ff8a95}
+#plotov .popt:not(.deep) .pfx{color:#9fe6a8}
 #plotov .popt.deep{color:#ffd7db;border-color:rgba(255,77,94,.4)}
 #typeov .panel{max-width:400px}
 #typeInput{width:100%;font:inherit;font-size:14px;color:var(--ink);background:rgba(255,255,255,.06);
@@ -672,6 +675,7 @@ var notifSeen=0,notifTapped=0,tapThink=0,struck=0,emptyTaps=0,bubbleTaps=0,
     breathT=0,breathNext=4,lastPhase=-1,myReplyText=null,holdTotal=0,resistStreak=0;
 var notifData=null,notifTimer=0;
 var mw1Done=false,mw2Done=false,stillDone=false,plotChoices=[],notifSwipe=false,bridges=[];
+var breathClock=0,rhythm=0,lastBoundary=0,finalFired=false;
 var fakeType=null,fakeStep=0,pendingPenalty=0;
 var pDown=null,pTimer=0,endRateObj=null;
 var cam={x:0,y:0,s:1},camT={x:0,y:0,s:1},camMode='follow';/* follow|full|manual */
@@ -739,7 +743,7 @@ function resetState(){
   holding=false;holdT=0;spawnClock=2.2;clearClock=5;eventClock=6;firstEvent=true;
   pending=null;buzzWin=0;capWarned=false;ended=false;running=false;fast=fast||false;
   notifSeen=0;notifTapped=0;tapThink=0;struck=0;emptyTaps=0;bubbleTaps=0;
-  breathT=0;breathNext=4;lastPhase=-1;myReplyText=null;endRateObj=null;holdTotal=0;resistStreak=0;mw1Done=false;mw2Done=false;stillDone=false;plotChoices=[];bridges=[];
+  breathT=0;breathNext=4;lastPhase=-1;myReplyText=null;endRateObj=null;holdTotal=0;resistStreak=0;mw1Done=false;mw2Done=false;stillDone=false;plotChoices=[];bridges=[];finalFired=false;rhythm=0;breathClock=0;lastBoundary=0;
   clearTimeout(notifTimer);notif.classList.remove('show');notifData=null;
   fakeov.classList.remove('on');replybar.classList.remove('on');
   myreply.hidden=true;withdrawBtn.hidden=true;
@@ -1248,12 +1252,17 @@ function tick(ts){
     return;
   }
   var plotPaused=plotov.classList.contains('on');
-  var spd=plotPaused?0:(fast?9:1)*(holding?1.1:1.8);
+  var spd=plotPaused?0:(fast?9:1)*(holding?0.85:1.35);
   waitMin+=spd*dt;
+  breathClock+=dt;
+  var bnd=Math.floor(breathClock/2)*2;
+  if(bnd!==lastBoundary)lastBoundary=bnd;
   if(branches.length>=5&&!msgrow.classList.contains('faded'))msgrow.classList.add('faded');
   if(holding){anxiety=Math.max(0,anxiety-0.05*dt);holdT+=dt;holdTotal+=dt;}
   else if(!plotPaused){anxiety=Math.min(1,anxiety+0.013*dt);holdT=0;}
   if(anxiety>peak)peak=anxiety;
+  /* 黎明抉择：天亮前最后一次内耗控制 */
+  if(!ended&&!finalFired&&waitMin>=150&&!plotov.classList.contains('on')&&!typeov.classList.contains('on')){finalFired=true;fireFinal();}
   if(!ended&&SC.plot&&!plotFired){
     var pnode=plotCur?SC.plot[plotCur]:SC.plot.start;
     if(waitMin>=pnode.at-peak*15){plotFired=true;firePlot(pnode);}
@@ -1355,6 +1364,35 @@ function forceThought(text){
     collect(text,String(nb.tier));
   }
 }
+function fireFinal(){
+  $('plotTime').textContent=timeAt(150);
+  $('plotTitle').textContent='黎明之前';
+  $('plotBody').textContent='天快亮了。手机屏幕暗下来，映出你的脸。这一晚怎么收尾，你说了算。';
+  var ob=$('plotOpts');
+  ob.innerHTML='';
+  var fin=[
+    {t:'再刷一会儿',mark:'内耗 ↑',run:function(){bump(0.12);moodPts++;var dd=deepest();if(dd){spawnEcho(dd);spawnEcho(dd);}toast('又刷了一轮。树又疯了一截。','warn');}},
+    {t:'把手机扣下，闭眼',mark:'内耗 ↓',run:function(){bump(-0.10);moodPts--;toast('屏幕暗下去的那一刻，世界安静了。','good');}},
+    {t:'写下明天要做的第一件事',mark:'内耗 ↓',run:function(){bump(-0.06);moodPts--;openTypeBeat();toast('写下来，就不怕忘。','good');}}
+  ];
+  fin.forEach(function(o){
+    var b=document.createElement('button');
+    b.type='button';
+    b.className='popt cursor-interaction';
+    b.innerHTML=o.t+'<span class="pfx">'+o.mark+'</span>';
+    b.addEventListener('click',function(){
+      if(ended)return;
+      plotov.classList.remove('on');
+      $('plotOpts').innerHTML='';
+      plotFired=true;
+      o.run();
+      persist();
+    });
+    ob.appendChild(b);
+  });
+  plotov.classList.add('on');
+  tone(520,760,0.15,0.09,'sine');vib(20);
+}
 function firePlot(beat){
   if(ended)return;
   $('plotTime').textContent=timeAt(beat.at);
@@ -1366,7 +1404,7 @@ function firePlot(beat){
     var b=document.createElement('button');
     b.type='button';
     b.className='popt cursor-interaction'+(oi===0?' deep':'');
-    b.textContent=o.t;
+    b.innerHTML=o.t+'<span class="pfx">'+(o.d?'内耗 ↑':'内耗 ↓')+'</span>';
     b.addEventListener('click',function(){
       if(ended)return;
       plotov.classList.remove('on');
@@ -1737,9 +1775,23 @@ function doSend(){
   if(DN[wk])setTimeout(function(){if(!ended)toast(DN[wk],'good',4200);},2600);
   tone(300,720,0.16,0.1,'sine');vib(20);
 }
+function onBeat(){
+  /* 是否处于节拍点后 0.7s 内（呼吸钟每 2 秒一次吸/呼切换） */
+  return (breathClock-lastBoundary)<=0.7;
+}
+function rhythmHit(label){
+  rhythm++;
+  if(rhythm>=3){
+    rhythm=0;
+    anxiety=Math.max(0,anxiety-0.08);
+    toast('和呼吸合拍了。'+(label||''),'good');
+    bump(-0.02);vib(30);
+  }
+}
 function startHold(e){
   if(ended||!running)return;
   if(e&&e.cancelable)e.preventDefault();
+  if(onBeat())rhythmHit('吸得很准。');
   holding=true;holdT=0;breathT=0;breathNext=4;lastPhase=-1;
   breathEl.classList.add('on');breathTxt.textContent='吸 —';
   holdBtn.classList.add('holding');
@@ -1754,6 +1806,7 @@ function endHold(){
   holdBtn.classList.remove('holding');
   holdBtn.setAttribute('aria-pressed','false');
   holdHint.textContent='盯着屏幕，念头会疯长';
+  if(onBeat())rhythmHit('呼得很稳。');
   if(buzzWin>0){
     buzzWin=0;bump(0.08);
     toast(pick(BAIT),'warn');
