@@ -675,7 +675,7 @@ var notifSeen=0,notifTapped=0,tapThink=0,struck=0,emptyTaps=0,bubbleTaps=0,
     breathT=0,breathNext=4,lastPhase=-1,myReplyText=null,holdTotal=0,resistStreak=0;
 var notifData=null,notifTimer=0;
 var mw1Done=false,mw2Done=false,stillDone=false,plotChoices=[],notifSwipe=false,bridges=[];
-var breathClock=0,rhythm=0,lastBoundary=0,finalFired=false;
+var breathClock=0,rhythm=0,lastBoundary=0,finalFired=false,dawnRush=false,endAnxiety=0;
 var fakeType=null,fakeStep=0,pendingPenalty=0;
 var pDown=null,pTimer=0,endRateObj=null;
 var cam={x:0,y:0,s:1},camT={x:0,y:0,s:1},camMode='follow';/* follow|full|manual */
@@ -743,7 +743,7 @@ function resetState(){
   holding=false;holdT=0;spawnClock=2.2;clearClock=5;eventClock=6;firstEvent=true;
   pending=null;buzzWin=0;capWarned=false;ended=false;running=false;fast=fast||false;
   notifSeen=0;notifTapped=0;tapThink=0;struck=0;emptyTaps=0;bubbleTaps=0;
-  breathT=0;breathNext=4;lastPhase=-1;myReplyText=null;endRateObj=null;holdTotal=0;resistStreak=0;mw1Done=false;mw2Done=false;stillDone=false;plotChoices=[];bridges=[];finalFired=false;rhythm=0;breathClock=0;lastBoundary=0;
+  breathT=0;breathNext=4;lastPhase=-1;myReplyText=null;endRateObj=null;holdTotal=0;resistStreak=0;mw1Done=false;mw2Done=false;stillDone=false;plotChoices=[];bridges=[];finalFired=false;rhythm=0;breathClock=0;lastBoundary=0;dawnRush=false;endAnxiety=0;
   clearTimeout(notifTimer);notif.classList.remove('show');notifData=null;
   fakeov.classList.remove('on');replybar.classList.remove('on');
   myreply.hidden=true;withdrawBtn.hidden=true;
@@ -1252,14 +1252,19 @@ function tick(ts){
     return;
   }
   var plotPaused=plotov.classList.contains('on');
-  var spd=plotPaused?0:(fast?9:1)*(holding?0.85:1.35);
+  var spd=plotPaused?0:(fast?9:1)*(holding?0.85:1.35)*(dawnRush?2.5:1);
   waitMin+=spd*dt;
   breathClock+=dt;
   var bnd=Math.floor(breathClock/2)*2;
   if(bnd!==lastBoundary)lastBoundary=bnd;
   if(branches.length>=5&&!msgrow.classList.contains('faded'))msgrow.classList.add('faded');
   if(holding){anxiety=Math.max(0,anxiety-0.05*dt);holdT+=dt;holdTotal+=dt;}
-  else if(!plotPaused){anxiety=Math.min(1,anxiety+0.013*dt);holdT=0;}
+  else if(!plotPaused){
+    /* 夜越深思绪越疲：增速随时间衰减；黎明抉择后困意压过思绪，内耗回落 */
+    if(dawnRush)anxiety=Math.max(0,anxiety-0.03*dt);
+    else anxiety=Math.min(1,anxiety+0.013*(1.1-waitMin/TOTAL*0.75)*dt);
+    holdT=0;
+  }
   if(anxiety>peak)peak=anxiety;
   /* 黎明抉择：天亮前最后一次内耗控制 */
   if(!ended&&!finalFired&&waitMin>=150&&!plotov.classList.contains('on')&&!typeov.classList.contains('on')){finalFired=true;fireFinal();}
@@ -1385,6 +1390,8 @@ function fireFinal(){
       plotov.classList.remove('on');
       $('plotOpts').innerHTML='';
       plotFired=true;
+      dawnRush=true;
+      toast('困意涌上来了。','good',2600);
       o.run();
       persist();
     });
@@ -1460,6 +1467,7 @@ function finish(){
     SAVE.stats.days[kd(new Date())]=1;
   }catch(e){}
   if(peak>=0.9)moodPts++;
+  endAnxiety=anxiety;
   var r=rateOf(branchCount);
   endRateObj=r;
   if(r===RATES[3])SAVE.stats.oscars++;
@@ -1555,14 +1563,15 @@ function showEnd(r){
   $('endRate').innerHTML='「'+r.name+'」'+(climbed?' <span style="-webkit-text-fill-color:initial;background:none;color:#7fe0a8;font-size:14px;letter-spacing:.08em;filter:none">· 🌄 自救成功</span>':'');
   $('endQuip').textContent=quip;
   $('endTruth').textContent=E?E.truth:SC.truth;
-  $('endStats').textContent='冒出的念头 '+branchCount+' 根 · 峰值内耗 '+Math.round(peak*100)+'% · 放过自己 '+clearCount+' 次'+(climbed?' · 你深陷过，但你自己爬出来了':'')+(plotChoices.length?' · 抉择：'+plotChoices.join(' → '):'');
+  $('endStats').textContent='冒出的念头 '+branchCount+' 根 · 峰值内耗 '+Math.round(peak*100)+'% · 天亮时 '+Math.round(endAnxiety*100)+'% · 放过自己 '+clearCount+' 次'+(climbed?' · 你深陷过，但你自己爬出来了':'')+(plotChoices.length?' · 抉择：'+plotChoices.join(' → '):'');
   var mainCare=(E&&climbed)?E.careV:((E&&E.care)||'');
   var tail='';
   if(resistStreak>=3)tail+=' 连续按住三次打扰都没点开——定力这种东西，真的是练出来的。';
   if(dayStreak()>=3)tail+=' 这已经是你连续第 '+dayStreak()+' 晚来练「放下」。这个习惯本身，就值得骄傲。';
   if(sceneDone)tail+=' 这个剧本的每一个念头，你都看尽了。下次不妨换个身份坐进来：旁观者。旁观，是放下最温柔的方式。';
+  var landing=endAnxiety<=0.35?' 你最后是安静的——那就够了。':(endAnxiety<=0.65?' 天亮时，你慢慢静了下来。':'');
   var cb=$('careBox');
-  cb.innerHTML='<div class="caret">'+M.t+'</div><div class="carec">'+M.c+(mainCare?' '+mainCare:'')+' '+behaviorRecap()+tail+'</div><div class="caref">'+trendLine()+'</div>';
+  cb.innerHTML='<div class="caret">'+M.t+'</div><div class="carec">'+M.c+(mainCare?' '+mainCare:'')+' '+behaviorRecap()+landing+tail+'</div><div class="caref">'+trendLine()+'</div>';
   cb.hidden=false;
   $('endNext').textContent=(E&&E.nx)?('第二天 —— '+E.nx):'';
   $('endNext').hidden=!($('endNext').textContent);
